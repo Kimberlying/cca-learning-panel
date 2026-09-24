@@ -7,6 +7,7 @@
 const STORAGE_KEY = "cca-study-companion-v2";
 
 const defaultState = {
+  lang: "zh", // "zh" 或 "en"
   plan: "14", // "7" 或 "14"
   theme: "sakura", // biennale, cobalt, emerald, neo-grid, block-frame, sakura, dark
   days: {
@@ -44,14 +45,12 @@ function loadState() {
       return structuredClone(defaultState);
     }
     const parsed = JSON.parse(saved);
-    const resolvedTheme =
-      !parsed.theme || ["editorial", "blue-pro", "swiss", "notebook", "block-frame"].includes(parsed.theme)
-        ? "sakura"
-        : parsed.theme;
+    const resolvedTheme = "sakura";
     return {
       ...defaultState,
       ...parsed,
-      theme: resolvedTheme,
+      lang: parsed.lang || "zh",
+      theme: "sakura",
       days: {
         7: { ...defaultState.days[7], ...(parsed.days?.[7] || {}) },
         14: { ...defaultState.days[14], ...(parsed.days?.[14] || {}) },
@@ -74,6 +73,52 @@ function saveState() {
     console.error("保存状态异常:", err);
   }
 }
+
+// ================= 国际化与双语切换 (i18n) =================
+function t(key, defaultVal = "") {
+  const lang = state.lang || "zh";
+  if (typeof I18N !== "undefined" && I18N[lang] && I18N[lang][key] !== undefined) {
+    return I18N[lang][key];
+  }
+  return defaultVal || key;
+}
+
+function updateUILanguage() {
+  const lang = state.lang || "zh";
+  const isEn = lang === "en";
+  document.documentElement.lang = isEn ? "en" : "zh-CN";
+
+  if (elements.langBtnZh) elements.langBtnZh.classList.toggle("active", !isEn);
+  if (elements.langBtnEn) elements.langBtnEn.classList.toggle("active", isEn);
+
+  document.querySelectorAll("[data-i18n]").forEach((el) => {
+    const key = el.getAttribute("data-i18n");
+    const val = t(key);
+    if (val) el.textContent = val;
+  });
+
+  document.querySelectorAll("[data-i18n-ph]").forEach((el) => {
+    const key = el.getAttribute("data-i18n-ph");
+    const val = t(key);
+    if (val) el.setAttribute("placeholder", val);
+  });
+
+  document.querySelectorAll("[data-i18n-title]").forEach((el) => {
+    const key = el.getAttribute("data-i18n-title");
+    const val = t(key);
+    if (val) el.setAttribute("title", val);
+  });
+}
+
+function setLanguage(newLang) {
+  if (state.lang === newLang) return;
+  state.lang = newLang;
+  saveState();
+  updateUILanguage();
+  renderAll();
+  showToast(t("toast_switched_lang"), "[LANG]");
+}
+
 
 // ================= 工具函数 =================
 function todayString() {
@@ -244,7 +289,8 @@ const elements = {
   communityResourcesContainer: document.getElementById("communityResourcesContainer"),
 
   // 工具栏与模态
-  themeSelector: document.getElementById("themeSelector"),
+  langBtnZh: document.getElementById("langBtnZh"),
+  langBtnEn: document.getElementById("langBtnEn"),
   openPomodoroBtn: document.getElementById("openPomodoroBtn"),
   exportBtn: document.getElementById("exportBtn"),
   importBtn: document.getElementById("importBtn"),
@@ -290,6 +336,7 @@ const elements = {
 
 // 1. 渲染 Hero 与顶部概览
 function renderHero() {
+  const isEn = state.lang === "en";
   const mastery = calculateWeightedMastery();
   elements.masteryPercent.textContent = `${mastery}%`;
   elements.masteryRing.style.setProperty("--mastery-deg", `${mastery * 3.6}deg`);
@@ -300,57 +347,66 @@ function renderHero() {
 
   // 今日行动
   if (nextIdx === -1) {
-    elements.todayDayBadge.textContent = "已达成";
-    elements.todayStatusBadge.textContent = "已完成全部计划";
+    elements.todayDayBadge.textContent = isEn ? "Finished" : "已达成";
+    elements.todayStatusBadge.textContent = isEn ? "Plan Completed" : "已完成全部计划";
     elements.todayStatusBadge.className = "badge-status checked";
     elements.todayEstimateTime.textContent = "0";
-    elements.todayTitle.textContent = `恭喜！${state.plan} 天备考计划已全部打卡完成`;
-    elements.todayObjective.textContent = "知识体系已打通！现在进入 Mock 标签页，进行全真模拟测试并针对错因定向回补。";
-    elements.todayOutput.textContent = "完成至少两套 60 题计时 Mock，确保稳定达到 80% 以上！";
-    elements.todayCheckinBtn.innerHTML = `<span class="checkin-icon">[通关]</span><span>计划已全部通关</span>`;
+    elements.todayTitle.textContent = isEn
+      ? `Congratulations! ${state.plan}-Day Study Plan Completed`
+      : `恭喜！${state.plan} 天备考计划已全部打卡完成`;
+    elements.todayObjective.textContent = isEn
+      ? "Knowledge system fully established! Proceed to the Mock tab for timed simulations and targeted review."
+      : "知识体系已打通！现在进入 Mock 标签页，进行全真模拟测试并针对错因定向回补。";
+    elements.todayOutput.textContent = isEn
+      ? "Complete at least two 60-question timed mocks with scores >= 80%!"
+      : "完成至少两套 60 题计时 Mock，确保稳定达到 80% 以上！";
+    elements.todayCheckinBtn.innerHTML = `<span class="checkin-icon">[Done]</span><span>${isEn ? "All Plans Completed" : "计划已全部通关"}</span>`;
     elements.todayCheckinBtn.className = "btn-checkin is-done";
   } else {
     const todayTask = planList[nextIdx];
+    const isCompleted = Boolean(state.days[state.plan]?.[nextIdx]);
     elements.todayDayBadge.textContent = `Day ${nextIdx + 1}`;
-    elements.todayStatusBadge.textContent = "待打卡";
-    elements.todayStatusBadge.className = "badge-status";
+    elements.todayStatusBadge.textContent = isCompleted ? (isEn ? "Checked" : "已打卡") : (isEn ? "Pending" : "待打卡");
+    elements.todayStatusBadge.className = `badge-status ${isCompleted ? "checked" : ""}`;
     elements.todayEstimateTime.textContent = String(todayTask.minutes);
-    elements.todayTitle.textContent = todayTask.title;
-    elements.todayObjective.textContent = todayTask.objective;
-    elements.todayOutput.textContent = todayTask.output;
-    elements.todayCheckinBtn.innerHTML = `<span class="checkin-icon">[打卡]</span><span>完成今日打卡</span>`;
-    elements.todayCheckinBtn.className = "btn-checkin";
+    elements.todayTitle.textContent = isEn ? (todayTask.title_en || todayTask.title) : todayTask.title;
+    elements.todayObjective.textContent = isEn ? (todayTask.objective_en || todayTask.objective) : todayTask.objective;
+    elements.todayOutput.textContent = isEn ? (todayTask.output_en || todayTask.output) : todayTask.output;
+    elements.todayCheckinBtn.innerHTML = `<span class="checkin-icon">[OK]</span><span>${isCompleted ? t("checked_in_label") : t("checkin_label")}</span>`;
+    elements.todayCheckinBtn.className = `btn-checkin ${isCompleted ? "is-done" : ""}`;
   }
 
   // 统计指标
   const streak = calculateStreak();
-  elements.streakDays.innerHTML = `${streak} <small>天</small>`;
+  elements.streakDays.innerHTML = `${streak} <small>${t("days_unit")}</small>`;
   elements.sideStreakCount.textContent = String(streak);
   elements.totalCheckins.textContent = String(state.checkins.length);
 
   elements.planDaysDone.innerHTML = `${daysDoneCount} <small id="planDaysTotal">/ ${planList.length}</small>`;
   const planPct = Math.round((daysDoneCount / planList.length) * 100);
-  elements.planPercentText.textContent = `完成率 ${planPct}%`;
+  elements.planPercentText.textContent = `${t("stat_completion_rate")} ${planPct}%`;
 
   const verifiedCount = Object.values(state.topics).filter((s) => s === 3).length;
   const coveredCount = Object.values(state.topics).filter((s) => s >= 1).length;
   elements.verifiedTopicsCount.innerHTML = `${verifiedCount} <small>/ 30</small>`;
-  elements.coveredTopicsText.textContent = `已学考点 ${coveredCount}/30`;
+  elements.coveredTopicsText.textContent = `${t("stat_covered")} ${coveredCount}/30`;
 
   // Mock 就绪度评估
   const qualifiedMocks = state.mocks.filter((m) => m.correct / 60 >= 0.8).length;
   const isReady = qualifiedMocks >= 2;
   elements.readinessStatusText.textContent = isReady
-    ? "已达就绪标准 (2次以上 80%+)"
-    : `就绪度：${qualifiedMocks}/2 次 Mock 达到 80%`;
+    ? (isEn ? "Exam Ready (2+ Mocks >= 80%)" : "已达就绪标准 (2次以上 80%+)")
+    : (isEn ? `Readiness: ${qualifiedMocks}/2 Mocks >= 80%` : `就绪度：${qualifiedMocks}/2 次 Mock 达到 80%`);
   elements.readinessIndicator.className = `readiness-indicator ${isReady ? "is-ready" : ""}`;
-  elements.mockReadinessText.textContent = isReady ? "已就绪" : `${qualifiedMocks} / 2 套`;
+  elements.mockReadinessText.textContent = isReady ? (isEn ? "Ready" : "已就绪") : `${qualifiedMocks} / 2`;
 
   if (state.mocks.length > 0) {
     const latest = state.mocks[0];
-    elements.latestMockText.textContent = `最近 ${latest.correct}/60 · ${latest.minutes}m`;
+    elements.latestMockText.textContent = isEn
+      ? `Latest: ${latest.correct}/60 (${latest.minutes}m)`
+      : `最近 ${latest.correct}/60 · ${latest.minutes}m`;
   } else {
-    elements.latestMockText.textContent = "暂无 Mock 记录";
+    elements.latestMockText.textContent = t("stat_mock_no_record");
   }
 
   // 目标考期倒计时
@@ -358,24 +414,33 @@ function renderHero() {
     const target = new Date(state.examDate + "T00:00:00");
     const diff = Math.ceil((target - new Date()) / (1000 * 60 * 60 * 24));
     if (diff > 0) {
-      elements.countdownLabel.textContent = `考期倒计时：还有 ${diff} 天 (${state.examDate})`;
+      elements.countdownLabel.textContent = isEn
+        ? `Exam in: ${diff} days (${state.examDate})`
+        : `考期倒计时：还有 ${diff} 天 (${state.examDate})`;
     } else if (diff === 0) {
-      elements.countdownLabel.textContent = `今天就是考试日！保持冷静，自信应战！`;
+      elements.countdownLabel.textContent = t("countdown_today", "今天就是考试日！保持冷静，自信应战！");
     } else {
-      elements.countdownLabel.textContent = `考期已过 (${state.examDate})，点击修改`;
+      elements.countdownLabel.textContent = isEn
+        ? `Exam passed (${state.examDate}), click to edit`
+        : `考期已过 (${state.examDate})，点击修改`;
     }
   } else {
-    elements.countdownLabel.textContent = "目标考期：尚未设定";
+    elements.countdownLabel.textContent = t("exam_countdown_unset");
   }
 }
 
 // 2. 渲染每日学习计划卡片流与日历
 function renderDailyPlan() {
+  const isEn = state.lang === "en";
   const planList = studyPlans[state.plan];
-  elements.planStreamHeading.textContent = `${state.plan} 天${state.plan === "7" ? "冲刺" : "稳妥"}学习计划`;
+  elements.planStreamHeading.textContent = isEn
+    ? `${state.plan}-Day ${state.plan === "7" ? "Sprint" : "Steady"} Study Plan`
+    : `${state.plan} 天${state.plan === "7" ? "冲刺" : "稳妥"}学习计划`;
 
   const doneCount = planList.filter((_, idx) => state.days[state.plan]?.[idx]).length;
-  elements.planProgressPill.textContent = `已完成 ${doneCount} / ${planList.length} 天`;
+  elements.planProgressPill.textContent = isEn
+    ? `Completed ${doneCount} / ${planList.length} days`
+    : `已完成 ${doneCount} / ${planList.length} 天`;
 
   elements.dailyCardsContainer.innerHTML = "";
 
@@ -384,28 +449,32 @@ function renderDailyPlan() {
     const card = document.createElement("article");
     card.className = `daily-card ${isCompleted ? "is-completed" : ""}`;
 
-    const tasksHtml = item.tasks.map((t) => `<li>${t}</li>`).join("");
+    const titleText = isEn ? (item.title_en || item.title) : item.title;
+    const objText = isEn ? (item.objective_en || item.objective) : item.objective;
+    const taskList = isEn ? (item.tasks_en || item.tasks) : item.tasks;
+    const outputText = isEn ? (item.output_en || item.output) : item.output;
+    const tasksHtml = taskList.map((t) => `<li>${t}</li>`).join("");
 
     card.innerHTML = `
       <div class="daily-card-top">
         <div class="daily-day-label">
           <span class="day-badge-num">Day ${index + 1}</span>
-          <h4 class="daily-card-title">${item.title}</h4>
+          <h4 class="daily-card-title">${titleText}</h4>
         </div>
-        <span class="daily-time-tag">建议 ${item.minutes} 分钟</span>
+        <span class="daily-time-tag">${isEn ? `Suggested ${item.minutes} mins` : `建议 ${item.minutes} 分钟`}</span>
       </div>
-      <p class="daily-card-objective">${item.objective}</p>
+      <p class="daily-card-objective">${objText}</p>
       <ul class="daily-task-items">${tasksHtml}</ul>
       <div class="daily-card-deliverable">
-        <strong>[检验产出] </strong>
-        <span>${item.output}</span>
+        <strong>${t("deliverable_tag")}</strong>
+        <span>${outputText}</span>
       </div>
       <div class="daily-card-footer">
         <label class="daily-checkbox-label">
           <input type="checkbox" data-day-index="${index}" ${isCompleted ? "checked" : ""} />
-          <span>${isCompleted ? "今日已完成" : "标记完成并打卡"}</span>
+          <span>${isCompleted ? t("already_completed") : t("mark_completed")}</span>
         </label>
-        <button type="button" class="btn-card-log" data-log-day="${index + 1}">写今日打卡心得</button>
+        <button type="button" class="btn-card-log" data-log-day="${index + 1}">${t("btn_write_reflection")}</button>
       </div>
     `;
     elements.dailyCardsContainer.appendChild(card);
@@ -491,6 +560,7 @@ function escapeHtml(text) {
 
 // 3. 渲染 30 项考点深度库
 function renderBlueprint() {
+  const isEn = state.lang === "en";
   const container = elements.domainsAccordionContainer;
   container.innerHTML = "";
 
@@ -505,7 +575,9 @@ function renderBlueprint() {
         return false;
       }
       if (!searchKeyword) return true;
-      const haystack = `${topic.code} ${topic.title} ${topic.official} ${topic.summary} ${topic.keyPoints.join(" ")} ${topic.antiPatterns.join(" ")}`.toLowerCase();
+      const tTitle = isEn ? (topic.title_en || topic.title) : topic.title;
+      const tSummary = isEn ? (topic.summary_en || topic.summary) : topic.summary;
+      const haystack = `${topic.code} ${tTitle} ${topic.official} ${tSummary}`.toLowerCase();
       return haystack.includes(searchKeyword);
     });
 
@@ -523,17 +595,19 @@ function renderBlueprint() {
     const card = document.createElement("div");
     card.className = "domain-accordion-card is-open";
 
+    const domSummary = isEn ? (dom.summary_en || dom.summary) : dom.summary;
+
     card.innerHTML = `
       <div class="domain-accordion-header" data-domain-toggle="${dom.code}">
         <div class="domain-title-group">
           <span class="domain-code-badge">${dom.code}</span>
           <div class="domain-title-text">
             <h3>${dom.code} · ${dom.title}</h3>
-            <p>${dom.summary}</p>
+            <p>${domSummary}</p>
           </div>
         </div>
         <div class="domain-progress-side">
-          <span class="domain-weight-tag">官方权重 ${dom.weight}%</span>
+          <span class="domain-weight-tag">${t("domain_weight_prefix")} ${dom.weight}%</span>
           <div class="domain-bar-wrapper">
             <div class="domain-bar-fill" style="width: ${domPercent}%"></div>
           </div>
@@ -547,8 +621,14 @@ function renderBlueprint() {
 
     filteredTopics.forEach((topic) => {
       const stage = state.topics[topic.code] ?? 0;
-      const keyPointsHtml = topic.keyPoints.map((kp) => `<li>${kp}</li>`).join("");
-      const antiPatternsHtml = topic.antiPatterns.map((ap) => `<li>${ap}</li>`).join("");
+      const tTitle = isEn ? (topic.title_en || topic.title) : topic.title;
+      const tSummary = isEn ? (topic.summary_en || topic.summary) : topic.summary;
+      const kpList = isEn ? (topic.keyPoints_en || topic.keyPoints) : topic.keyPoints;
+      const apList = isEn ? (topic.antiPatterns_en || topic.antiPatterns) : topic.antiPatterns;
+      const evText = isEn ? (topic.evidence_en || topic.evidence) : topic.evidence;
+
+      const keyPointsHtml = kpList.map((kp) => `<li>${kp}</li>`).join("");
+      const antiPatternsHtml = apList.map((ap) => `<li>${ap}</li>`).join("");
 
       const topicEl = document.createElement("article");
       topicEl.className = "topic-card";
@@ -557,31 +637,31 @@ function renderBlueprint() {
           <div class="topic-title-area">
             <span class="topic-num-badge">${topic.code}</span>
             <div class="topic-headings">
-              <h4>${topic.title}</h4>
+              <h4>${tTitle}</h4>
               <div class="topic-official-name">${topic.official}</div>
             </div>
           </div>
           <div class="stage-select-box">
             <label for="stage-${topic.code}" class="sr-only">掌握阶段</label>
             <select id="stage-${topic.code}" data-topic-code="${topic.code}">
-              <option value="0" ${stage === 0 ? "selected" : ""}>0. 未开始</option>
-              <option value="1" ${stage === 1 ? "selected" : ""}>1. 理解概念</option>
-              <option value="2" ${stage === 2 ? "selected" : ""}>2. 完成练习</option>
-              <option value="3" ${stage === 3 ? "selected" : ""}>3. 新题验证</option>
+              <option value="0" ${stage === 0 ? "selected" : ""}>${isEn ? "0. Unstarted" : "0. 未开始"}</option>
+              <option value="1" ${stage === 1 ? "selected" : ""}>${isEn ? "1. Concept" : "1. 理解概念"}</option>
+              <option value="2" ${stage === 2 ? "selected" : ""}>${isEn ? "2. Practice" : "2. 完成练习"}</option>
+              <option value="3" ${stage === 3 ? "selected" : ""}>${isEn ? "3. Verified" : "3. 新题验证"}</option>
             </select>
           </div>
         </div>
-        <p class="topic-summary-box"><strong>考纲核心：</strong>${topic.summary}</p>
+        <p class="topic-summary-box"><strong>${isEn ? "Core Summary: " : "考纲核心："}</strong>${tSummary}</p>
         <div class="topic-keypoints">
-          <strong>[核心原理与正确做法] </strong>
+          <strong>[${t("key_principles_label")}] </strong>
           <ul>${keyPointsHtml}</ul>
         </div>
         <div class="topic-antipatterns">
-          <strong>[高频反模式与易错陷阱] </strong>
+          <strong>[${t("anti_patterns_label")}] </strong>
           <ul>${antiPatternsHtml}</ul>
         </div>
         <div class="topic-evidence-box">
-          <span><strong>[掌握证据] </strong>${topic.evidence}</span>
+          <span><strong>[${t("evidence_label")}] </strong>${evText}</span>
         </div>
       `;
       bodyContainer.appendChild(topicEl);
@@ -593,8 +673,8 @@ function renderBlueprint() {
   if (container.children.length === 0) {
     container.innerHTML = `
       <div class="empty-state">
-        <span>[无结果]</span>
-        <p>没有找到与「${escapeHtml(state.searchKeyword)}」或当前筛选条件匹配的考点，请尝试清除搜索词。</p>
+        <span>[${isEn ? "No Matching Tasks" : "无结果"}]</span>
+        <p>${isEn ? `No tasks found matching "${escapeHtml(state.searchKeyword)}". Try clearing filters.` : `没有找到与「${escapeHtml(state.searchKeyword)}」或当前筛选条件匹配的考点，请尝试清除搜索词。`}</p>
       </div>
     `;
   }
@@ -602,21 +682,25 @@ function renderBlueprint() {
 
 // 4. 渲染 10 步决策罗盘与场景
 function renderDecisionLens() {
+  const isEn = state.lang === "en";
   // 10 步决策
   elements.decisionRulesGrid.innerHTML = "";
   decisionRules.forEach((item) => {
     const card = document.createElement("div");
     card.className = "rule-card";
+    const rTitle = isEn ? (item.title_en || item.title) : item.title;
+    const rRule = isEn ? (item.rule_en || item.rule) : item.rule;
+    const rTrap = isEn ? (item.trap_en || item.trap) : item.trap;
     card.innerHTML = `
       <div class="rule-card-header">
         <span class="rule-step-badge">${item.step}</span>
-        <h4>${item.title}</h4>
+        <h4>${rTitle}</h4>
       </div>
       <div class="rule-body">
-        <strong>判断准则：</strong>${item.rule}
+        <strong>${t("rule_criterion_label")}</strong>${rRule}
       </div>
       <div class="rule-trap">
-        <strong>[常见陷阱] </strong>${item.trap}
+        <strong>${t("rule_trap_label")}</strong>${rTrap}
       </div>
     `;
     elements.decisionRulesGrid.appendChild(card);
@@ -627,12 +711,14 @@ function renderDecisionLens() {
   highFrequencyTraps.forEach((trap) => {
     const card = document.createElement("div");
     card.className = "trap-card";
+    const tName = isEn ? (trap.trap_en || trap.trap) : trap.trap;
+    const tReason = isEn ? (trap.reason_en || trap.reason) : trap.reason;
     card.innerHTML = `
       <div class="trap-title">
-        <span>[无结果]</span>
-        <span>${trap.trap}</span>
+        <span>${t("trap_tag")}</span>
+        <span>${tName}</span>
       </div>
-      <p class="trap-reason"><strong>为什么错 / 正确做法：</strong>${trap.reason}</p>
+      <p class="trap-reason"><strong>${t("trap_reason_label")}</strong>${tReason}</p>
     `;
     elements.trapsGrid.appendChild(card);
   });
@@ -642,14 +728,16 @@ function renderDecisionLens() {
   officialScenarios.forEach((sc) => {
     const card = document.createElement("div");
     card.className = "scenario-card";
-    const taskPills = sc.keyTasks.map((t) => `<span class="scenario-task-pill">${t}</span>`).join("");
+    const scTasks = isEn ? (sc.keyTasks_en || sc.keyTasks) : sc.keyTasks;
+    const taskPills = scTasks.map((t) => `<span class="scenario-task-pill">${t}</span>`).join("");
+    const scFocus = isEn ? (sc.focus_en || sc.focus) : sc.focus;
     card.innerHTML = `
       <div class="scenario-top">
-        <span class="scenario-id-tag">场景 ${sc.id}</span>
+        <span class="scenario-id-tag">${t("scenario_prefix")} ${sc.id}</span>
       </div>
-      <h4>${sc.nameZh}</h4>
-      <div class="scenario-en-title">${sc.title}</div>
-      <p class="scenario-focus">${sc.focus}</p>
+      <h4>${isEn ? sc.title : sc.nameZh}</h4>
+      <div class="scenario-en-title">${isEn ? sc.nameZh : sc.title}</div>
+      <p class="scenario-focus">${scFocus}</p>
       <div class="scenario-tasks-tags">${taskPills}</div>
     `;
     elements.scenariosGrid.appendChild(card);
@@ -749,6 +837,7 @@ function renderMockAndMistakes() {
 
 // 6. 渲染考前清单与资源
 function renderResourcesAndChecklist() {
+  const isEn = state.lang === "en";
   // 考前 10 项清单
   elements.preExamChecklistContainer.innerHTML = "";
   let checkedCount = 0;
@@ -757,23 +846,28 @@ function renderResourcesAndChecklist() {
     if (isChecked) checkedCount++;
     const row = document.createElement("label");
     row.className = `checklist-row ${isChecked ? "checked" : ""}`;
+    const txt = isEn ? (item.text_en || item.text) : item.text;
     row.innerHTML = `
       <input type="checkbox" data-checklist-id="${item.id}" ${isChecked ? "checked" : ""} />
-      <span>${item.text}</span>
+      <span>${txt}</span>
     `;
     elements.preExamChecklistContainer.appendChild(row);
   });
-  elements.checklistScorePill.textContent = `已确认 ${checkedCount} / ${preExamChecklist.length}`;
+  elements.checklistScorePill.textContent = `${t("checklist_score_prefix")} ${checkedCount} / ${preExamChecklist.length}`;
 
   // 版本分歧对照表
   elements.divergenceTableBody.innerHTML = "";
   versionDivergence.forEach((v) => {
     const tr = document.createElement("tr");
+    const vTopic = isEn ? (v.topic_en || v.topic) : v.topic;
+    const vGuide = isEn ? (v.examGuide_en || v.examGuide) : v.examGuide;
+    const vDocs = isEn ? (v.currentDocs_en || v.currentDocs) : v.currentDocs;
+    const vStrat = isEn ? (v.strategy_en || v.strategy) : v.strategy;
     tr.innerHTML = `
-      <td><strong>${v.topic}</strong></td>
-      <td><code>${v.examGuide}</code></td>
-      <td><code>${v.currentDocs}</code></td>
-      <td>${v.strategy}</td>
+      <td><strong>${vTopic}</strong></td>
+      <td><code>${vGuide}</code></td>
+      <td><code>${vDocs}</code></td>
+      <td>${vStrat}</td>
     `;
     elements.divergenceTableBody.appendChild(tr);
   });
@@ -782,7 +876,7 @@ function renderResourcesAndChecklist() {
   elements.outOfScopeListContainer.innerHTML = "";
   outOfScopeList.forEach((item) => {
     const li = document.createElement("li");
-    li.textContent = item;
+    li.textContent = typeof item === "object" ? (isEn ? item.en : item.zh) : item;
     elements.outOfScopeListContainer.appendChild(li);
   });
 
@@ -796,7 +890,7 @@ function renderResourcesAndChecklist() {
     a.rel = "noreferrer";
     a.innerHTML = `
       <strong>${r.name} ↗</strong>
-      <span>${r.desc}</span>
+      <span>${isEn ? (r.desc_en || r.desc) : r.desc}</span>
     `;
     elements.officialResourcesContainer.appendChild(a);
   });
@@ -810,7 +904,7 @@ function renderResourcesAndChecklist() {
     a.rel = "noreferrer";
     a.innerHTML = `
       <strong>${r.name} ↗</strong>
-      <span>${r.desc}</span>
+      <span>${isEn ? (r.desc_en || r.desc) : r.desc}</span>
     `;
     elements.communityResourcesContainer.appendChild(a);
   });
@@ -900,6 +994,7 @@ elements.todayCheckinBtn.addEventListener("click", () => {
 // 打开打卡弹窗
 function openCheckinModal(defaultDay = 1) {
   elements.checkinDate.value = todayString();
+  const isEn = state.lang === "en";
   elements.checkinDuration.value = String(studyPlans[state.plan][defaultDay - 1]?.minutes || 120);
 
   // 填充下拉选项
@@ -907,7 +1002,8 @@ function openCheckinModal(defaultDay = 1) {
   studyPlans[state.plan].forEach((d, idx) => {
     const opt = document.createElement("option");
     opt.value = String(idx);
-    opt.textContent = `Day ${idx + 1} · ${d.title}`;
+    const dayTitle = isEn ? (d.title_en || d.title) : d.title;
+    opt.textContent = `Day ${idx + 1} · ${dayTitle}`;
     if (idx + 1 === defaultDay) opt.selected = true;
     elements.checkinDayIndex.appendChild(opt);
   });
@@ -1005,19 +1101,21 @@ elements.stageFilterBtns.forEach((btn) => {
 
 // 复制 AI 刷题 Prompt
 elements.copyAiPromptBtn.addEventListener("click", async () => {
+  const isEn = state.lang === "en";
+  const promptToCopy = isEn ? (window.aiCoachPromptEn || aiCoachPromptEn || aiCoachPrompt) : aiCoachPrompt;
   try {
-    await navigator.clipboard.writeText(aiCoachPrompt);
+    await navigator.clipboard.writeText(promptToCopy);
     playChime(true);
-    showToast("已成功复制 AI 刷题教练 Prompt！可粘贴至 Claude 对话开始练习", "[PROMPT]");
+    showToast(t("toast_prompt_copied"), "[PROMPT]");
   } catch (err) {
     // 降级方案
     const ta = document.createElement("textarea");
-    ta.value = aiCoachPrompt;
+    ta.value = promptToCopy;
     document.body.appendChild(ta);
     ta.select();
     document.execCommand("copy");
     ta.remove();
-    showToast("已成功复制 AI 刷题教练 Prompt！", "[PROMPT]");
+    showToast(t("toast_prompt_copied"), "[PROMPT]");
   }
 });
 
@@ -1072,13 +1170,15 @@ elements.errorCatFilterContainer.addEventListener("click", (e) => {
 
 // 打开添加错题弹窗
 elements.openAddMistakeModalBtn.addEventListener("click", () => {
+  const isEn = state.lang === "en";
   // 填充 Domain 考点选项
   elements.mistakeDomain.innerHTML = "";
   domains.forEach((dom) => {
     dom.topics.forEach((t) => {
       const opt = document.createElement("option");
       opt.value = `${dom.code} - ${t.code}`;
-      opt.textContent = `${t.code} ${t.title} (${dom.code})`;
+      const tTitle = isEn ? (t.title_en || t.title) : t.title;
+      opt.textContent = `${t.code} ${tTitle} (${dom.code})`;
       elements.mistakeDomain.appendChild(opt);
     });
   });
@@ -1088,7 +1188,9 @@ elements.openAddMistakeModalBtn.addEventListener("click", () => {
   errorCategories.forEach((cat) => {
     const opt = document.createElement("option");
     opt.value = cat.code;
-    opt.textContent = `${cat.name} - ${cat.desc}`;
+    const catName = isEn ? (cat.name_en || cat.name) : cat.name;
+    const catDesc = isEn ? (cat.desc_en || cat.desc) : cat.desc;
+    opt.textContent = `${catName} - ${catDesc}`;
     elements.mistakeErrorCategory.appendChild(opt);
   });
 
@@ -1321,30 +1423,24 @@ elements.pomodoroStartBtn.addEventListener("click", startPomodoro);
 elements.pomodoroPauseBtn.addEventListener("click", pausePomodoro);
 elements.pomodoroResetBtn.addEventListener("click", resetPomodoro);
 
-// ================= 主题色彩引擎 =================
-function applyTheme(themeName) {
-  state.theme = themeName || "sakura";
-  document.body.className = document.body.className
-    .replace(/\btheme-\S+/g, "")
-    .trim();
-  document.body.classList.add(`theme-${state.theme}`);
-  if (elements.themeSelector) {
-    elements.themeSelector.value = state.theme;
-  }
+// ================= 主题锁定与语言绑定 =================
+function applyTheme() {
+  state.theme = "sakura";
+  document.body.className = "theme-sakura";
 }
 
-if (elements.themeSelector) {
-  elements.themeSelector.addEventListener("change", (e) => {
-    applyTheme(e.target.value);
-    saveState();
-    const selText = elements.themeSelector.options[elements.themeSelector.selectedIndex]?.text || "";
-    showToast(`主题已切换为：${selText}`, "[主题]");
-  });
+// 绑定语言切换按钮
+if (elements.langBtnZh) {
+  elements.langBtnZh.addEventListener("click", () => setLanguage("zh"));
+}
+if (elements.langBtnEn) {
+  elements.langBtnEn.addEventListener("click", () => setLanguage("en"));
 }
 
 // ================= 初始化启动 =================
 function init() {
-  applyTheme(state.theme || "block-frame");
+  applyTheme();
+  updateUILanguage();
   elements.mockDate.value = todayString();
   renderAll();
 }

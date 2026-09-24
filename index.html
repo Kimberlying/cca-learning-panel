@@ -33,28 +33,21 @@
               <span class="exam-title-tag">Claude Certified Architect · Foundations</span>
               <span class="cassette-spec-tag">[TYPE I · C-60]</span>
             </div>
-            <h1 class="brand-heading">备考全景看板 & 每日打卡</h1>
+            <h1 class="brand-heading" data-i18n="brand_title">备考全景看板 & 每日打卡</h1>
           </div>
         </div>
 
         <div class="header-tools">
           <!-- 计划时长切换 -->
           <div class="plan-switcher" role="group" aria-label="选择备考计划">
-            <button type="button" class="plan-btn" data-plan="7">7 天冲刺</button>
-            <button type="button" class="plan-btn active" data-plan="14">14 天稳妥</button>
+            <button type="button" class="plan-btn" data-plan="7" data-i18n="plan_7">7 天冲刺</button>
+            <button type="button" class="plan-btn active" data-plan="14" data-i18n="plan_14">14 天稳妥</button>
           </div>
 
-          <!-- 主题配色切换 -->
-          <div class="theme-switcher-box">
-            <select id="themeSelector" class="theme-select" title="切换看板主题配色" aria-label="切换色彩主题">
-              <option value="sakura" selected>复古日系磁带 (Sakura Chroma)</option>
-              <option value="block-frame">新粗野派积木 (BlockFrame)</option>
-              <option value="biennale">双年展策展黄 (Biennale Yellow)</option>
-              <option value="cobalt">蓝图公报 (Cobalt Grid)</option>
-              <option value="emerald">翡翠名刊 (Emerald Editorial)</option>
-              <option value="neo-grid">新包豪斯黑黄 (Neo-Grid Bold)</option>
-              <option value="dark">暗黑极客 (Dark Signal)</option>
-            </select>
+          <!-- 语言切换 / Language Switcher -->
+          <div class="lang-switcher" role="group" aria-label="Language Switcher">
+            <button type="button" class="lang-btn active" data-lang="zh" id="langBtnZh" title="切换为中文">中文</button>
+            <button type="button" class="lang-btn" data-lang="en" id="langBtnEn" title="Switch to English">EN</button>
           </div>
 
 
@@ -62,19 +55,19 @@
           <div class="action-buttons">
             <button class="tool-btn pomodoro-trigger" id="openPomodoroBtn" title="打开专注番茄钟">
               
-              <span class="btn-text">专注计时</span>
+              <span class="btn-text" data-i18n="btn_pomodoro">专注计时</span>
             </button>
             <button class="tool-btn" id="exportBtn" title="导出备份当前学习进度与打卡记录">
               
-              <span class="btn-text">导出</span>
+              <span class="btn-text" data-i18n="btn_export">导出</span>
             </button>
             <button class="tool-btn" id="importBtn" title="从 JSON 文件恢复进度">
               
-              <span class="btn-text">导入</span>
+              <span class="btn-text" data-i18n="btn_import">导入</span>
             </button>
             <input type="file" id="importFileInput" accept="application/json" class="sr-only" />
             <button class="tool-btn danger" id="resetBtn" title="重置全部学习与打卡数据">
-              <span class="btn-text">重置</span>
+              <span class="btn-text" data-i18n="btn_reset">重置</span>
             </button>
           </div>
         </div>
@@ -87,16 +80,16 @@
       <section class="hero-overview">
         <!-- 官方加权掌握度环 -->
         <div class="hero-card mastery-card">
-          <div class="card-kicker">官方权重加权</div>
+          <div class="card-kicker" data-i18n="mastery_kicker">官方权重加权</div>
           <div class="ring-wrapper">
             <div class="mastery-ring" id="masteryRing" style="--mastery-deg: 0deg;">
               <div class="ring-inner">
                 <span class="ring-val" id="masteryPercent">0%</span>
-                <span class="ring-label">加权掌握度</span>
+                <span class="ring-label" data-i18n="mastery_label">加权掌握度</span>
               </div>
             </div>
           </div>
-          <p class="ring-caption">按 D1 27%, D2 18%, D3 20%, D4 20%, D5 15% 精确计算</p>
+          <p class="ring-caption" data-i18n="mastery_caption">按 D1 27%, D2 18%, D3 20%, D4 20%, D5 15% 精确计算</p>
         </div>
 
         <!-- 今日学习行动与快速打卡 -->
@@ -115,29 +108,29 @@
           <div class="today-deliverable">
             
             <div class="deliverable-content">
-              <strong>必做交付证据：</strong>
+              <strong data-i18n="today_deliverable_label">必做交付证据：</strong>
               <span id="todayOutput">加载中...</span>
             </div>
           </div>
           <div class="today-actions">
             <button type="button" class="btn-checkin" id="todayCheckinBtn">
               
-              <span class="checkin-label">完成今日打卡</span>
+              <span class="checkin-label" data-i18n="checkin_label">完成今日打卡</span>
             </button>
             <button type="button" class="btn-study-now" id="todayStudyFocusBtn">
-              <span>开始专注学习 (25m)</span>
+              <span data-i18n="btn_focus_now">开始专注学习 (25m)</span>
             </button>
           </div>
         </div>
 
         <!-- 备考与打卡统计矩阵 -->
         <div class="hero-card metrics-matrix">
-          <div class="card-kicker">备考战斗力统计</div>
+          <div class="card-kicker" data-i18n="stats_kicker">备考战斗力统计</div>
           <div class="stats-grid">
             <div class="stat-box">
               <div class="stat-top">
                 
-                <span class="stat-label">连续打卡</span>
+                <span class="stat-label" data-i18n="stat_streak">连续打卡</span>
               </div>
               <div class="stat-number" id="streakDays">0 <small>天</small></div>
               <div class="stat-sub">总打卡 <span id="totalCheckins">0</span> 次</div>
@@ -146,7 +139,7 @@
             <div class="stat-box">
               <div class="stat-top">
                 
-                <span class="stat-label">计划进度</span>
+                <span class="stat-label" data-i18n="stat_plan_progress">计划进度</span>
               </div>
               <div class="stat-number" id="planDaysDone">0 <small id="planDaysTotal">/ 14</small></div>
               <div class="stat-sub" id="planPercentText">完成率 0%</div>
@@ -155,7 +148,7 @@
             <div class="stat-box">
               <div class="stat-top">
                 
-                <span class="stat-label">考点已验证</span>
+                <span class="stat-label" data-i18n="stat_verified">考点已验证</span>
               </div>
               <div class="stat-number" id="verifiedTopicsCount">0 <small>/ 30</small></div>
               <div class="stat-sub" id="coveredTopicsText">总覆盖 0/30</div>
@@ -164,7 +157,7 @@
             <div class="stat-box">
               <div class="stat-top">
                 
-                <span class="stat-label">Mock 就绪度</span>
+                <span class="stat-label" data-i18n="stat_mock_readiness">Mock 就绪度</span>
               </div>
               <div class="stat-number" id="mockReadinessText">未开始</div>
               <div class="stat-sub" id="latestMockText">暂无模拟记录</div>
@@ -173,42 +166,42 @@
           <div class="exam-countdown" id="examCountdownBox">
             
             <span class="countdown-text" id="countdownLabel">目标考期：点击设定</span>
-            <button class="btn-text-action" id="setExamDateBtn">设置日期</button>
+            <button class="btn-text-action" id="setExamDateBtn" data-i18n="set_exam_date_btn">设置日期</button>
           </div>
         </div>
       </section>
 
       <!-- 考试结构速查条 -->
       <section class="exam-quick-strip">
-        <div class="strip-item"><strong>代码：</strong>CCAR-F</div>
-        <div class="strip-item"><strong>题量：</strong>60 题 (单选+多选)</div>
-        <div class="strip-item"><strong>时长：</strong>120 分钟 (约 135 分钟 Seat Time)</div>
-        <div class="strip-item"><strong>场景：</strong>6 抽 4 官方场景</div>
-        <div class="strip-item"><strong>及格分：</strong>720 / 1000 (Scaled Score)</div>
-        <div class="strip-item"><strong>费用：</strong>$125 USD</div>
+        <div class="strip-item"><strong data-i18n="strip_code">代码：</strong>CCAR-F</div>
+        <div class="strip-item"><strong data-i18n="strip_questions">题量：</strong><span data-i18n="strip_questions_val">60 题 (单选+多选)</span></div>
+        <div class="strip-item"><strong data-i18n="strip_duration">时长：</strong><span data-i18n="strip_duration_val">120 分钟 (约 135 分钟 Seat Time)</span></div>
+        <div class="strip-item"><strong data-i18n="strip_scenarios">场景：</strong><span data-i18n="strip_scenarios_val">6 抽 4 官方场景</span></div>
+        <div class="strip-item"><strong data-i18n="strip_pass">及格分：</strong><span data-i18n="strip_pass_val">720 / 1000 (Scaled Score)</span></div>
+        <div class="strip-item"><strong data-i18n="strip_fee">费用：</strong><span data-i18n="strip_fee_val">$125 USD</span></div>
       </section>
 
       <!-- 导航标签页切换器 -->
       <nav class="tabs-nav" aria-label="主功能标签导航">
         <button type="button" class="tab-btn active" data-tab="plan">
           
-          <span class="tab-title">每日学习与打卡</span>
+          <span class="tab-title" data-i18n="tab_plan">每日学习与打卡</span>
         </button>
         <button type="button" class="tab-btn" data-tab="blueprint">
           
-          <span class="tab-title">30 项考点深度库</span>
+          <span class="tab-title" data-i18n="tab_blueprint">30 项考点深度库</span>
         </button>
         <button type="button" class="tab-btn" data-tab="lens">
           
-          <span class="tab-title">10 步决策罗盘 & 场景</span>
+          <span class="tab-title" data-i18n="tab_lens">10 步决策罗盘 & 场景</span>
         </button>
         <button type="button" class="tab-btn" data-tab="mock">
           
-          <span class="tab-title">Mock 模拟 & 错题本</span>
+          <span class="tab-title" data-i18n="tab_mock">Mock 模拟 & 错题本</span>
         </button>
         <button type="button" class="tab-btn" data-tab="resources">
           
-          <span class="tab-title">考前清单 & 资源</span>
+          <span class="tab-title" data-i18n="tab_resources">考前清单 & 资源</span>
         </button>
       </nav>
 
@@ -220,7 +213,7 @@
             <div class="section-title-row">
               <div>
                 <h3 class="panel-heading" id="planStreamHeading">14 天稳妥学习计划</h3>
-                <p class="panel-subheading">每一天都有明确的目标、实操任务与必须留下的可检验交付证据</p>
+                <p class="panel-subheading" data-i18n="plan_subheading">每一天都有明确的目标、实操任务与必须留下的可检验交付证据</p>
               </div>
               <div class="plan-progress-pill" id="planProgressPill">已完成 0 / 14 天</div>
             </div>
@@ -234,7 +227,7 @@
           <aside class="checkin-sidebar">
             <div class="sidebar-card checkin-history-card">
               <div class="sidebar-card-header">
-                <h4>打卡日历 & 学习印记</h4>
+                <h4 data-i18n="calendar_title">打卡日历 & 学习印记</h4>
                 <span class="streak-badge">连胜 <b id="sideStreakCount">0</b> 天</span>
               </div>
               <div class="calendar-grid-wrapper">
@@ -255,8 +248,8 @@
             <!-- 打卡心得笔记列表 -->
             <div class="sidebar-card notes-card">
               <div class="sidebar-card-header">
-                <h4>每日打卡心得与错题速记</h4>
-                <button class="btn-text-action" id="addNewCheckinNoteBtn">+ 补充心得</button>
+                <h4 data-i18n="notes_title">每日打卡心得与错题速记</h4>
+                <button class="btn-text-action" id="addNewCheckinNoteBtn" data-i18n="btn_add_note">+ 补充心得</button>
               </div>
               <div class="checkin-notes-list" id="checkinNotesList">
                 <div class="empty-state">
@@ -277,25 +270,25 @@
             <input
               type="search"
               id="topicSearchInput"
-              placeholder="搜索考点、关键词（例如：hooks, stop_reason, batch, session, claude.md）..."
+              placeholder="搜索考点、关键词（例如：hooks, stop_reason, batch, session, claude.md）..." data-i18n-ph="search_placeholder"
             />
           </div>
           <div class="filter-group">
-            <span class="filter-label">掌握阶段筛选：</span>
-            <button class="stage-filter-btn active" data-filter-stage="all">全部 (30)</button>
-            <button class="stage-filter-btn" data-filter-stage="0">0. 未学</button>
-            <button class="stage-filter-btn" data-filter-stage="1">1. 理解</button>
-            <button class="stage-filter-btn" data-filter-stage="2">2. 练习</button>
-            <button class="stage-filter-btn" data-filter-stage="3">3. 验证</button>
+            <span class="filter-label" data-i18n="stage_filter_label">掌握阶段筛选：</span>
+            <button class="stage-filter-btn active" data-filter-stage="all" data-i18n="stage_all">全部 (30)</button>
+            <button class="stage-filter-btn" data-filter-stage="0" data-i18n="stage_0">0. 未学</button>
+            <button class="stage-filter-btn" data-filter-stage="1" data-i18n="stage_1">1. 理解</button>
+            <button class="stage-filter-btn" data-filter-stage="2" data-i18n="stage_2">2. 练习</button>
+            <button class="stage-filter-btn" data-filter-stage="3" data-i18n="stage_3">3. 验证</button>
           </div>
         </div>
 
         <div class="stage-guide-bar">
-          <div class="guide-title">四阶掌握度标准：</div>
-          <div class="stage-step"><span class="stage-badge s0">0. 未开始</span> 尚未阅读该 Task Statement 核心规范</div>
-          <div class="stage-step"><span class="stage-badge s1">1. 理解概念</span> 能解释核心原理、与相近概念的区别</div>
-          <div class="stage-step"><span class="stage-badge s2">2. 完成练习</span> 能写出对应的代码/配置/流程图反模式</div>
-          <div class="stage-step"><span class="stage-badge s3">3. 新题验证</span> 在陌生场景题中能迅速排除高频干扰项并做对</div>
+          <div class="guide-title" data-i18n="stage_guide_title">四阶掌握度标准：</div>
+          <div class="stage-step"><span class="stage-badge s0">0. 未开始</span> <span data-i18n="stage_step_0">尚未阅读该 Task Statement 核心规范</span></div>
+          <div class="stage-step"><span class="stage-badge s1">1. 理解概念</span> <span data-i18n="stage_step_1">能解释核心原理、与相近概念的区别</span></div>
+          <div class="stage-step"><span class="stage-badge s2">2. 完成练习</span> <span data-i18n="stage_step_2">能写出对应的代码/配置/流程图反模式</span></div>
+          <div class="stage-step"><span class="stage-badge s3">3. 新题验证</span> <span data-i18n="stage_step_3">在陌生场景题中能迅速排除高频干扰项并做对</span></div>
         </div>
 
         <div class="domains-accordion-container" id="domainsAccordionContainer">
@@ -307,11 +300,11 @@
       <section class="tab-panel" id="tab-lens">
         <div class="lens-header">
           <div class="lens-title-block">
-            <h3 class="panel-heading">场景题统一决策罗盘 (Exam Decision Lens)</h3>
-            <p class="panel-subheading">遇到任何复杂工程场景题，按以下 10 步黄金顺序快速判定最优解，秒杀干扰项！</p>
+            <h3 class="panel-heading" data-i18n="compass_title">场景题统一决策罗盘 (Exam Decision Lens)</h3>
+            <p class="panel-subheading" data-i18n="compass_subheading">遇到任何复杂工程场景题，按以下 10 步黄金顺序快速判定最优解，秒杀干扰项！</p>
           </div>
           <button class="btn-copy-prompt" id="copyAiPromptBtn">
-            <span>复制 AI 刷题教练 Prompt</span>
+            <span data-i18n="btn_copy_prompt">复制 AI 刷题教练 Prompt</span>
           </button>
         </div>
 
@@ -324,8 +317,8 @@
         <div class="traps-section">
           <div class="section-title-row">
             <div>
-              <h3 class="panel-heading">高频干扰项陷阱对比清单</h3>
-              <p class="panel-subheading">官方与高质量题库中最爱设下的 10 大思维误区，认清套路不踩坑！</p>
+              <h3 class="panel-heading" data-i18n="traps_title">高频干扰项陷阱对比清单</h3>
+              <p class="panel-subheading" data-i18n="traps_subheading">官方与高质量题库中最爱设下的 10 大思维误区，认清套路不踩坑！</p>
             </div>
           </div>
           <div class="traps-grid" id="trapsGrid">
@@ -337,8 +330,8 @@
         <div class="scenarios-section">
           <div class="section-title-row">
             <div>
-              <h3 class="panel-heading">官方 6 大考试场景全貌 (每次考试抽选 4 个)</h3>
-              <p class="panel-subheading">理解每个场景的典型技术架构、关键设计点与考点映射</p>
+              <h3 class="panel-heading" data-i18n="scenarios_title">官方 6 大考试场景全貌 (每次考试抽选 4 个)</h3>
+              <p class="panel-subheading" data-i18n="scenarios_subheading">理解每个场景的典型技术架构、关键设计点与考点映射</p>
             </div>
           </div>
           <div class="scenarios-grid" id="scenariosGrid">
@@ -355,8 +348,8 @@
             <div class="panel-card">
               <div class="card-header-styled">
                 <div>
-                  <h3 class="card-title">录入 Mock 模拟考成绩</h3>
-                  <p class="card-subtitle">每套模拟测试 60 题，建议在 105 分钟内答完，留 15 分钟复核</p>
+                  <h3 class="card-title" data-i18n="mock_form_title">录入 Mock 模拟考成绩</h3>
+                  <p class="card-subtitle" data-i18n="mock_form_sub">每套模拟测试 60 题，建议在 105 分钟内答完，留 15 分钟复核</p>
                 </div>
                 <div class="readiness-indicator" id="readinessIndicator">
                   <span class="readiness-dot"></span>
@@ -367,22 +360,22 @@
               <form class="mock-entry-form" id="mockEntryForm">
                 <div class="form-row three-cols">
                   <div class="form-field">
-                    <label for="mockDate">考试日期</label>
+                    <label for="mockDate" data-i18n="mock_date_label">考试日期</label>
                     <input type="date" id="mockDate" required />
                   </div>
                   <div class="form-field">
-                    <label for="mockCorrect">答对题数 (0-60)</label>
+                    <label for="mockCorrect" data-i18n="mock_correct_label">答对题数 (0-60)</label>
                     <input type="number" id="mockCorrect" min="0" max="60" placeholder="例如: 49" required />
                   </div>
                   <div class="form-field">
-                    <label for="mockMinutes">用时 (分钟)</label>
+                    <label for="mockMinutes" data-i18n="mock_minutes_label">用时 (分钟)</label>
                     <input type="number" id="mockMinutes" min="1" max="200" placeholder="例如: 105" required />
                   </div>
                 </div>
 
                 <div class="form-row two-cols">
                   <div class="form-field">
-                    <label for="mockWeakest">表现最弱 Domain</label>
+                    <label for="mockWeakest" data-i18n="mock_weakest_label">表现最弱 Domain</label>
                     <select id="mockWeakest" required>
                       <option value="D1">D1 Agentic Architecture (27%)</option>
                       <option value="D2">D2 Tool Design & MCP (18%)</option>
@@ -392,25 +385,25 @@
                     </select>
                   </div>
                   <div class="form-field">
-                    <label for="mockSource">模拟题来源</label>
+                    <label for="mockSource" data-i18n="mock_source_label">模拟题来源</label>
                     <input type="text" id="mockSource" placeholder="例如: 社区 Mock 1 / AI 原创试卷" />
                   </div>
                 </div>
 
                 <div class="form-field">
-                  <label for="mockNotes">总结与错因概括</label>
+                  <label for="mockNotes" data-i18n="mock_notes_label">总结与错因概括</label>
                   <textarea id="mockNotes" rows="2" placeholder="例如：多选漏选；错题集中在 D1 的 hooks 判定和 D4 的 schema nullable 上..."></textarea>
                 </div>
 
                 <button type="submit" class="btn-primary-submit">
-                  <span>保存此次 Mock 战绩</span>
+                  <span data-i18n="mock_submit_btn">保存此次 Mock 战绩</span>
                 </button>
               </form>
             </div>
 
             <!-- Mock 历史战绩列表 -->
             <div class="panel-card">
-              <h3 class="card-title">Mock 历史记录</h3>
+              <h3 class="card-title" data-i18n="mock_history_title">Mock 历史记录</h3>
               <div class="mock-history-list" id="mockHistoryList">
                 <!-- 动态渲染 -->
               </div>
@@ -422,11 +415,11 @@
             <div class="panel-card">
               <div class="card-header-styled">
                 <div>
-                  <h3 class="card-title">错题笔记本</h3>
-                  <p class="card-subtitle">复盘的是错因根因，而不是死背题号字母！</p>
+                  <h3 class="card-title" data-i18n="mistakes_title">错题笔记本</h3>
+                  <p class="card-subtitle" data-i18n="mistakes_subtitle">复盘的是错因根因，而不是死背题号字母！</p>
                 </div>
                 <button class="btn-secondary-action" id="openAddMistakeModalBtn">
-                  <span>+ 添加一道错题</span>
+                  <span data-i18n="btn_add_mistake">+ 添加一道错题</span>
                 </button>
               </div>
 
@@ -451,8 +444,8 @@
           <div class="panel-card checklist-card">
             <div class="card-header-styled">
               <div>
-                <h3 class="card-title">考前最后一页 · 10 项确认清单</h3>
-                <p class="card-subtitle">走进考场或开启 Pearson 远程监控前，逐项自我确认（点击可打勾并自动保存）</p>
+                <h3 class="card-title" data-i18n="checklist_title">考前最后一页 · 10 项确认清单</h3>
+                <p class="card-subtitle" data-i18n="checklist_sub">走进考场或开启 Pearson 远程监控前，逐项自我确认（点击可打勾并自动保存）</p>
               </div>
               <div class="checklist-score" id="checklistScorePill">已确认 0 / 10</div>
             </div>
@@ -464,16 +457,16 @@
 
           <!-- 备考版本分歧对照表 -->
           <div class="panel-card">
-            <h3 class="card-title">版本演进避坑指南 (Exam Guide vs 当前官方文档)</h3>
-            <p class="card-subtitle">官方考试命题与实际最新 SDK 之间的差异对照，避免死背过时参数或与考纲冲突</p>
+            <h3 class="card-title" data-i18n="divergence_title">版本演进避坑指南 (Exam Guide vs 当前官方文档)</h3>
+            <p class="card-subtitle" data-i18n="divergence_sub">官方考试命题与实际最新 SDK 之间的差异对照，避免死背过时参数或与考纲冲突</p>
             <div class="divergence-table-wrapper">
               <table class="divergence-table">
                 <thead>
                   <tr>
-                    <th>主题</th>
-                    <th>Exam Guide / 旧题库语境</th>
-                    <th>当前官方产品文档语境</th>
-                    <th>答题与实操策略</th>
+                    <th data-i18n="div_col_topic">主题</th>
+                    <th data-i18n="div_col_exam">Exam Guide / 旧题库语境</th>
+                    <th data-i18n="div_col_docs">当前官方产品文档语境</th>
+                    <th data-i18n="div_col_strategy">答题与实操策略</th>
                   </tr>
                 </thead>
                 <tbody id="divergenceTableBody">
@@ -485,8 +478,8 @@
 
           <!-- 明确不考的范围 -->
           <div class="panel-card out-of-scope-card">
-            <h3 class="card-title">明确不考范围 (Out of Scope · 杜绝盲目内耗)</h3>
-            <p class="card-subtitle">以下内容在真实工程中很有用，但 CCAR-F 考纲已明确排除，备考期间切勿把时间浪费在此处！</p>
+            <h3 class="card-title" data-i18n="out_of_scope_title">明确不考范围 (Out of Scope · 杜绝盲目内耗)</h3>
+            <p class="card-subtitle" data-i18n="out_of_scope_sub">以下内容在真实工程中很有用，但 CCAR-F 考纲已明确排除，备考期间切勿把时间浪费在此处！</p>
             <ul class="out-of-scope-list" id="outOfScopeListContainer">
               <!-- JS 动态渲染 -->
             </ul>
@@ -494,14 +487,14 @@
 
           <!-- 权威资源链接矩阵 -->
           <div class="panel-card">
-            <h3 class="card-title">官方与优质社区资源矩阵</h3>
+            <h3 class="card-title" data-i18n="resources_title">官方与优质社区资源矩阵</h3>
             <div class="resource-matrix-grid">
               <div class="resource-col">
-                <h4 class="resource-col-title">官方权威通道 (最高优先级)</h4>
+                <h4 class="resource-col-title" data-i18n="res_official_title">官方权威通道 (最高优先级)</h4>
                 <div class="resource-links" id="officialResourcesContainer"></div>
               </div>
               <div class="resource-col">
-                <h4 class="resource-col-title">社区辅助实操与模拟</h4>
+                <h4 class="resource-col-title" data-i18n="res_community_title">社区辅助实操与模拟</h4>
                 <div class="resource-links" id="communityResourcesContainer"></div>
               </div>
             </div>
@@ -513,8 +506,8 @@
     <!-- 底部版权与免责声明 -->
     <footer class="app-footer">
       <div class="footer-inner">
-        <p>CCAR-F 学习看板数据完全运行于本地浏览器并保存在 localStorage，不会上传个人信息。</p>
-        <p>本项目独立制作，不隶属于 Anthropic，亦未获其赞助或背书。认证相关商标权属其合法所有人。</p>
+        <p data-i18n="footer_p1">CCAR-F 学习看板数据完全运行于本地浏览器并保存在 localStorage，不会上传个人信息。</p>
+        <p data-i18n="footer_p2">本项目独立制作，不隶属于 Anthropic，亦未获其赞助或背书。认证相关商标权属其合法所有人。</p>
       </div>
     </footer>
 

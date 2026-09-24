@@ -65,190 +65,7 @@ body.theme-sakura {
   -webkit-font-smoothing: antialiased;
 }
 
-/* 方案 2: BlockFrame 新粗野派积木 */
-body.theme-block-frame {
-  color-scheme: light;
-  --bg-canvas: #fffdf5;
-  --surface: #ffffff;
-  --surface-alt: #f4efe2;
-  --border: #000000;
-  --border-focus: #000000;
-  --text-main: #000000;
-  --text-muted: #333333;
-  --text-light: #555555;
-
-  --candy-pink: #fe90e8;
-  --candy-blue: #c0f7fe;
-  --candy-green: #99e885;
-  --candy-yellow: #f7cb46;
-  --candy-cream: #ffdc8b;
-  --candy-purple: #e0c3fc;
-  --candy-red: #ff8585;
-
-  --primary: #000000;
-  --primary-hover: #222222;
-  --primary-soft: #c0f7fe;
-  --sun: #f7cb46;
-  --sun-soft: #ffdc8b;
-  --sun-glow: rgba(247, 203, 70, 0.4);
-  --ember: #ff8585;
-  --ember-soft: #ffe8e8;
-  --success: #000000;
-  --success-soft: #dcfce7;
-  --info: #000000;
-  --info-soft: #c0f7fe;
-  --warning: #000000;
-  --warning-soft: #ffdc8b;
-  --danger: #000000;
-  --danger-soft: #ffe8e8;
-  --purple: #000000;
-  --purple-soft: #e0c3fc;
-
-  --brand-badge-bg: #fe90e8;
-  --brand-badge-color: var(--text-main);
-
-  --shadow-xs: 2px 2px 0px var(--border);
-  --shadow-sm: 3px 3px 0px var(--border);
-  --shadow-md: 4px 4px 0px var(--border);
-  --shadow-lg: 6px 6px 0px var(--border);
-  --shadow-xl: 8px 8px 0px var(--border);
-
-  font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-}
-
-/* 方案 2: Biennale Yellow (双年展策展黄) */
-body.theme-biennale {
-  --bg-canvas: #e9e5db;
-  --surface: #ffffff;
-  --surface-alt: #f0ebd9;
-  --border: rgba(27, 37, 102, 0.18);
-  --border-focus: #1b2566;
-  --text-main: #1b2566;
-  --text-muted: #4e5786;
-  --text-light: #7c83a5;
-  --primary: #1b2566;
-  --primary-hover: #111a4c;
-  --primary-soft: #fbf5cd;
-  --sun: #f1ee2e;
-  --sun-soft: #f8f39b;
-  --brand-badge-bg: #f1ee2e;
-  --brand-badge-color: #1b2566;
-}
-
-/* 方案 3: Cobalt Grid (蓝图公报) */
-body.theme-cobalt {
-  --bg-canvas: #f0ebde;
-  --surface: #ffffff;
-  --surface-alt: #e6e0ce;
-  --border: rgba(31, 43, 224, 0.22);
-  --border-focus: #1f2be0;
-  --text-main: #111827;
-  --text-muted: #4b5563;
-  --text-light: #9ca3af;
-  --primary: #1f2be0;
-  --primary-hover: #1520b8;
-  --primary-soft: #e8ebfc;
-  --sun: #5560e5;
-  --brand-badge-bg: #1f2be0;
-  --brand-badge-color: #ffffff;
-}
-
-/* 方案 4: Emerald Editorial (翡翠名刊) */
-body.theme-emerald {
-  --bg-canvas: #f1e9d6;
-  --surface: #ffffff;
-  --surface-alt: #e4dac1;
-  --border: rgba(15, 26, 92, 0.2);
-  --border-focus: #0f1a5c;
-  --text-main: #0f1a5c;
-  --text-muted: #3a4593;
-  --text-light: #6a74b5;
-  --primary: #25b377;
-  --primary-hover: #1e9964;
-  --primary-soft: #d7f7e9;
-  --sun: #3cd896;
-  --brand-badge-bg: #3cd896;
-  --brand-badge-color: #0f1a5c;
-}
-
-/* 方案 5: Neo-Grid Bold (新包豪斯黑黄) */
-body.theme-neo-grid {
-  --bg-canvas: #ecece8;
-  --surface: #f5f4ef;
-  --surface-alt: #deded8;
-  --border: #0a0a0a;
-  --border-focus: #000000;
-  --text-main: #0a0a0a;
-  --text-muted: #555550;
-  --text-light: #8a8a85;
-  --primary: #0a0a0a;
-  --primary-hover: #222222;
-  --primary-soft: #f4fbc8;
-  --sun: #e6ff3d;
-  --brand-badge-bg: #e6ff3d;
-  --brand-badge-color: #0a0a0a;
-}
-
-/* 方案 6: Sakura Chroma (默认生效) */
-
-/* 方案 7: Dark Signal (暗黑极客) */
-body.theme-dark {
-  color-scheme: dark;
-  --bg-canvas: #121212;
-  --surface: #1e1e1e;
-  --surface-alt: #282828;
-  --border: #383838;
-  --border-focus: #555555;
-  --text-main: #ededed;
-  --text-muted: #a3a3a3;
-  --text-light: #737373;
-  --primary: #ff5722;
-  --primary-hover: #e64a19;
-  --primary-soft: #3d2218;
-  --sun: #fbbf24;
-  --brand-badge-bg: #ff5722;
-  --brand-badge-color: #121212;
-}
-
-body.theme-dark .app-header {
-  background: rgba(30, 30, 30, 0.92);
-}
-body.theme-dark .ring-inner,
-body.theme-dark .plan-btn.active,
-body.theme-dark .tool-btn,
-body.theme-dark .exam-quick-strip,
-body.theme-dark .tabs-nav,
-body.theme-dark .app-footer,
-body.theme-dark .modal-box,
-body.theme-dark .cal-cell,
-body.theme-dark .domain-accordion-header,
-body.theme-dark .topic-card,
-body.theme-dark .form-field input,
-body.theme-dark .form-field select,
-body.theme-dark .form-field textarea {
-  background: #1e1e1e;
-  color: #ededed;
-}
-body.theme-dark .today-action-card {
-  background: linear-gradient(180deg, #1e1e1e 0%, #252220 100%);
-  border-color: #5c301d;
-}
-body.theme-dark .topic-keypoints,
-body.theme-dark .checkin-note-item,
-body.theme-dark .mistake-card,
-body.theme-dark .mistake-answers-diff {
-  background: #262626;
-  color: #ededed;
-}
-body.theme-dark .topic-keypoints ul,
-body.theme-dark .daily-task-items,
-body.theme-dark .rule-body,
-body.theme-dark .divergence-table td {
-  color: #d4d4d4;
-}
-body.theme-dark .domain-topics-body {
-  background: #181818;
-}
+/* 单一固定主题: Sakura Chroma 复古日系磁带 (夏日复古磁带版) */
 
 
 * {
@@ -267,11 +84,6 @@ body {
   font-family: 'Albert Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 
-body.theme-block-frame {
-  background-image: radial-gradient(#000000 1.2px, transparent 1.2px);
-  background-size: 20px 20px;
-  font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-}
 
 button, input, select, textarea {
   font: inherit;
@@ -322,22 +134,7 @@ h1, h2, h3, h4,
   letter-spacing: -0.015em;
 }
 
-body.theme-block-frame h1,
-body.theme-block-frame h2,
-body.theme-block-frame h3,
-body.theme-block-frame h4,
-body.theme-block-frame .brand-heading,
-body.theme-block-frame .metric-value,
-body.theme-block-frame .ring-val,
-body.theme-block-frame .hero-title,
-body.theme-block-frame .modal-title,
-body.theme-block-frame .rule-title,
-body.theme-block-frame .blueprint-card h3,
-body.theme-block-frame .domain-accordion-header h3,
-body.theme-block-frame .daily-card-title,
-body.theme-block-frame .section-title {
-  font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-}
+/* Sakura Chroma Typography */
 
 /* ================= 顶部主导航栏 ================= */
 .app-header {
@@ -486,28 +283,41 @@ body.theme-block-frame .section-title {
   box-shadow: 2px 2px 0px var(--border);
 }
 
-.theme-select {
-  padding: 0.4rem 0.85rem;
-  font-size: 0.82rem;
-  font-weight: 800;
+.lang-switcher {
+  display: inline-flex;
+  align-items: center;
+  background: var(--surface-alt);
+  border: 2px solid var(--border);
+  box-shadow: 2px 2px 0px var(--border);
   border-radius: var(--radius-sm);
-  background: var(--candy-cream, #ffdc8b);
-  color: var(--text-main);
-  border: 2.5px solid var(--border);
-  box-shadow: 3px 3px 0px var(--border);
+  overflow: hidden;
+  padding: 2px;
+  gap: 2px;
+}
+
+.lang-btn {
+  background: transparent;
+  border: none;
+  padding: 0.35rem 0.65rem;
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: var(--text-muted);
   cursor: pointer;
-  outline: none;
-  transition: all 0.1s ease;
+  border-radius: var(--radius-sm);
+  transition: all 0.15s ease;
+  line-height: 1;
 }
 
-.theme-select:hover {
-  transform: translate(-1px, -1px);
-  box-shadow: 4px 4px 0px var(--border);
+.lang-btn:hover {
+  color: var(--text-main);
+  background: rgba(58, 37, 22, 0.08);
 }
 
-.theme-select:focus {
-  border-color: var(--border);
-  box-shadow: 4px 4px 0px var(--border);
+.lang-btn.active {
+  background: var(--text-main);
+  color: var(--bg-canvas);
+  font-weight: 900;
+  box-shadow: 1px 1px 0px var(--border);
 }
 
 .action-buttons {
