@@ -10,7 +10,7 @@ Based on the official **Anthropic Exam Guide v1.0**, this dashboard provides a c
 
 ## Privacy & Local Data Architecture
 
-- **100% Client-Side & Serverless**: Runs completely inside your web browser. No accounts, cookies, telemetry, or external database connections.
+- **100% Client-Side & Serverless**: Runs completely inside your web browser. No accounts, cookies, telemetry, or external database connections. The only network request is loading web fonts from Google Fonts; offline, the page falls back to system fonts.
 - **Local Storage (`localStorage`)**: Your check-ins, study minutes, custom exam date, mock exam scores, and reflection notes are stored exclusively on your device under `cca-study-companion-v2`.
 - **Zero Data Leakage on GitHub**: Pushing this repository to GitHub or hosting it on GitHub Pages publishes only the static application code. Your personal study logs, notes, and local files will never be uploaded.
 - **Portability**: Includes one-click **Export JSON** and **Import JSON** capabilities for seamless multi-device backup and migration.
@@ -21,11 +21,11 @@ Based on the official **Anthropic Exam Guide v1.0**, this dashboard provides a c
 
 ### 1. Weighted Mastery Progress Ring
 - Real-time calculation using official Anthropic Domain weightings:
-  - **Domain 1**: Core Architecture & Agentic Workflows (27%)
-  - **Domain 2**: Prompt Engineering & Structured Outputs (18%)
-  - **Domain 3**: Tool Use & Function Calling (20%)
-  - **Domain 4**: Context & Knowledge Augmentation / RAG (20%)
-  - **Domain 5**: Evaluation, Safety, Guardrails & Production Readiness (15%)
+  - **Domain 1**: Agentic Architecture & Orchestration (27%)
+  - **Domain 2**: Tool Design & MCP Integration (18%)
+  - **Domain 3**: Claude Code Configuration & Workflows (20%)
+  - **Domain 4**: Prompt Engineering & Structured Output (20%)
+  - **Domain 5**: Context Management & Reliability (15%)
 
 ### 2. Dual-Track Daily Study Plan
 - Switch between **7-Day Sprint** (intensive 90-120 min/day) and **14-Day Steady** (structured 45-60 min/day) roadmaps.
@@ -54,7 +54,7 @@ Based on the official **Anthropic Exam Guide v1.0**, this dashboard provides a c
 
 ### 6. Mock Exam Tracker & 9-Cause Error Taxonomy
 - Track 60-question / 120-minute practice exam scores and domain breakdowns.
-- Automated readiness indicator (recommends two mock scores >= 80% with no domain < 75%).
+- Automated readiness indicator: ready once two mock scores reach >= 80%. For each mock, also log your weakest domain and review it until no domain is below ~75%.
 - Categorize mistakes by **9 Root Cause Archetypes**:
   - `criteria`: Misread acceptance criteria
   - `determinism`: Chose LLM when deterministic code was required

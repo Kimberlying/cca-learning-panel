@@ -10,7 +10,7 @@
 
 ## 隐私安全与本地数据架构
 
-- **100% 纯前端零后端**：完全在本地浏览器中运行，无需注册登录，无 Cookie 追踪，无任何第三方分析代码。
+- **100% 纯前端零后端**：完全在本地浏览器中运行，无需注册登录，无 Cookie 追踪，无任何第三方分析代码。唯一的网络请求是从 Google Fonts 加载字体，离线时自动回退为系统字体。
 - **本地存储（localStorage）**：所有的打卡历史、专注学习时长、自定义考试日期、模拟考试成绩以及错题心得，均保存在本地浏览器的 `localStorage`（键名：`cca-study-companion-v2`）中。
 - **代码上传 GitHub 零隐私泄露**：上传至 GitHub 或部署到 GitHub Pages 时，仅包含纯静态的前端页面与静态考纲数据，你个人的打卡进度、心得笔记以及本地文件均不会被同步或公开。
 - **便捷备份与恢复**：内置一键 **导出 JSON 备份** 与 **导入 JSON 恢复** 功能，方便在多设备间迁移数据，且无需依赖任何云端服务。
@@ -21,11 +21,11 @@
 
 ### 1. 加权掌握度环（Weighted Mastery）
 - 严格按照官方 5 大 Domain 权重实时加权计算总体自评掌握度：
-  - **Domain 1**: 核心架构与 Agentic 循环 (27%)
-  - **Domain 2**: 提示词工程与结构化输出 (18%)
-  - **Domain 3**: 工具调用与函数能力 (20%)
-  - **Domain 4**: 上下文与知识增强 / RAG (20%)
-  - **Domain 5**: 评测验证、安全合规与生产就绪 (15%)
+  - **Domain 1**: Agentic 架构与编排 (Agentic Architecture & Orchestration) (27%)
+  - **Domain 2**: 工具设计与 MCP 集成 (Tool Design & MCP Integration) (18%)
+  - **Domain 3**: Claude Code 配置与工作流 (Claude Code Configuration & Workflows) (20%)
+  - **Domain 4**: 提示词工程与结构化输出 (Prompt Engineering & Structured Output) (20%)
+  - **Domain 5**: 上下文管理与可靠性 (Context Management & Reliability) (15%)
 
 ### 2. 双轨每日打卡与学习流水
 - 支持 **7 天冲刺**（高强度每日 90-120 分钟）与 **14 天稳妥**（结构化每日 45-60 分钟）学习路线无缝切换。
@@ -53,7 +53,7 @@
 
 ### 6. Mock 模拟战绩与 9 大错因笔记本
 - 记录 60 题 / 120 分钟全真模拟得分、耗时与各 Domain 分项得分。
-- 动态判定建议就绪度（两次 Mock 达到 80% 且单项无低于 75%）。
+- 动态判定建议就绪度：两次 Mock 达到 80% 即视为就绪；每次 Mock 同时记录最弱 Domain，建议回补到各 Domain 均不低于 75% 左右。
 - 错题按 **9 大标准错因分类** 统计与复盘：
   - `criteria`: 题干诉求与验收标准未读透
   - `determinism`: 确定性代码任务误用大模型
