@@ -5,63 +5,128 @@
 
 // ================= 全局状态与本地持久化 =================
 const STORAGE_KEY = "cca-study-companion-v2";
+const LEGACY_STORAGE_KEY = "cca-learning-panel-v1";
+const DAY_MS = 86400000;
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 const defaultState = {
   lang: "zh", // "zh" 或 "en"
   plan: "14", // "7" 或 "14"
-  theme: "sakura", // biennale, cobalt, emerald, neo-grid, block-frame, sakura, dark
   days: {
     7: {},
     14: {},
   },
   topics: {}, // code -> stage (0: 未开始, 1: 理解, 2: 练习, 3: 验证)
-  checkins: [], // [{ id, date: "YYYY-MM-DD", minutes: 120, planDay: 1, note: "..." }]
+  checkins: [], // [{ id, date: "YYYY-MM-DD", minutes: 120, plan: "14", planDay: 1, note: "...", auto: false }]
   mocks: [], // [{ id, date, correct, minutes, weakestDomain, source, notes }]
   mistakes: [], // [{ id, questionNo, domain, taskCode, stem, myAnswer, correctAnswer, errorCategory, reviewRef, reflection }]
   checklist: {}, // { c1: true, c2: false... }
   examDate: "", // 目标考试日期 YYYY-MM-DD
+};
+
+// 仅在当前页面会话中有效的界面状态（不持久化，避免刷新后出现"隐形"搜索词）
+const ui = {
   activeErrorCat: "all",
   activeStageFilter: "all",
   searchKeyword: "",
 };
 
+// ---- 数据清洗：localStorage 与导入的 JSON 都必须经过这里 ----
+const isPlainObject = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
+const asString = (v, fallback = "") => (typeof v === "string" ? v : typeof v === "number" ? String(v) : fallback);
+const asDate = (v, fallback = "") => (typeof v === "string" && DATE_RE.test(v) ? v : fallback);
+
+function asNumber(v, min, max, fallback) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(max, Math.max(min, Math.round(n)));
+}
+
+function asBoolMap(v) {
+  if (!isPlainObject(v)) return {};
+  return Object.fromEntries(Object.entries(v).map(([k, val]) => [k, Boolean(val)]));
+}
+
+function asList(v, mapItem) {
+  if (!Array.isArray(v)) return [];
+  return v.filter(isPlainObject).map(mapItem).filter(Boolean);
+}
+
+function sanitizeState(raw) {
+  const src = isPlainObject(raw) ? raw : {};
+  const days = isPlainObject(src.days) ? src.days : {};
+  const topics = isPlainObject(src.topics) ? src.topics : {};
+  let idSeq = 0;
+  const makeId = (v) => asString(v) || `${Date.now()}-${idSeq++}`;
+
+  return {
+    lang: src.lang === "en" ? "en" : "zh",
+    plan: String(src.plan) === "7" ? "7" : "14",
+    days: {
+      7: asBoolMap(days[7]),
+      14: asBoolMap(days[14]),
+    },
+    topics: Object.fromEntries(Object.entries(topics).map(([k, v]) => [k, asNumber(v, 0, 3, 0)])),
+    checkins: asList(src.checkins, (c) => {
+      const date = asDate(c.date);
+      if (!date) return null;
+      return {
+        id: makeId(c.id),
+        date,
+        minutes: asNumber(c.minutes, 1, 1440, 120),
+        plan: c.plan === undefined ? undefined : String(c.plan) === "7" ? "7" : "14",
+        planDay: asNumber(c.planDay, 1, 14, 1),
+        note: asString(c.note),
+        auto: Boolean(c.auto),
+      };
+    }),
+    mocks: asList(src.mocks, (m) => ({
+      id: makeId(m.id),
+      date: asDate(m.date, todayString()),
+      correct: asNumber(m.correct, 0, 60, 0),
+      minutes: asNumber(m.minutes, 0, 600, 0),
+      weakestDomain: asString(m.weakestDomain),
+      source: asString(m.source),
+      notes: asString(m.notes),
+    })),
+    mistakes: asList(src.mistakes, (m) => ({
+      id: makeId(m.id),
+      questionNo: asString(m.questionNo),
+      domain: asString(m.domain),
+      taskCode: asString(m.taskCode),
+      stem: asString(m.stem),
+      myAnswer: asString(m.myAnswer),
+      correctAnswer: asString(m.correctAnswer),
+      errorCategory: asString(m.errorCategory),
+      reviewRef: asString(m.reviewRef),
+      reflection: asString(m.reflection),
+    })),
+    checklist: asBoolMap(src.checklist),
+    examDate: asDate(src.examDate),
+  };
+}
+
 function loadState() {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
-    if (!saved) {
-      // 尝试从 v1 迁移旧数据
-      const legacy = localStorage.getItem("cca-learning-panel-v1");
-      if (legacy) {
-        const parsedLegacy = JSON.parse(legacy);
-        return {
-          ...defaultState,
-          plan: parsedLegacy.plan || "14",
-          days: { ...defaultState.days, ...parsedLegacy.days },
-          topics: Object.fromEntries(
-            Object.entries(parsedLegacy.topics || {}).map(([k, v]) => [k, v ? 1 : 0]),
-          ),
-        };
-      }
-      return structuredClone(defaultState);
+    if (saved) return sanitizeState(JSON.parse(saved));
+
+    // 尝试从 v1 迁移旧数据
+    const legacy = localStorage.getItem(LEGACY_STORAGE_KEY);
+    if (legacy) {
+      const parsedLegacy = JSON.parse(legacy);
+      return sanitizeState({
+        plan: parsedLegacy.plan,
+        days: parsedLegacy.days,
+        topics: Object.fromEntries(
+          Object.entries(parsedLegacy.topics || {}).map(([k, v]) => [k, v ? 1 : 0]),
+        ),
+      });
     }
-    const parsed = JSON.parse(saved);
-    const resolvedTheme = "sakura";
-    return {
-      ...defaultState,
-      ...parsed,
-      lang: parsed.lang || "zh",
-      theme: "sakura",
-      days: {
-        7: { ...defaultState.days[7], ...(parsed.days?.[7] || {}) },
-        14: { ...defaultState.days[14], ...(parsed.days?.[14] || {}) },
-      },
-      topics: { ...defaultState.topics, ...(parsed.topics || {}) },
-      checklist: { ...defaultState.checklist, ...(parsed.checklist || {}) },
-    };
   } catch (err) {
     console.error("加载状态异常，恢复默认:", err);
-    return structuredClone(defaultState);
   }
+  return structuredClone(defaultState);
 }
 
 let state = loadState();
@@ -75,39 +140,41 @@ function saveState() {
 }
 
 // ================= 国际化与双语切换 (i18n) =================
-function t(key, defaultVal = "") {
-  const lang = state.lang || "zh";
-  if (typeof I18N !== "undefined" && I18N[lang] && I18N[lang][key] !== undefined) {
-    return I18N[lang][key];
+function t(key, vars) {
+  const dict = (typeof I18N !== "undefined" && I18N[state.lang]) || {};
+  let text = dict[key] ?? I18N?.zh?.[key] ?? key;
+  if (vars) {
+    text = text.replace(/\{(\w+)\}/g, (m, name) => (vars[name] !== undefined ? String(vars[name]) : m));
   }
-  return defaultVal || key;
+  return text;
+}
+
+// 从数据对象中取当前语言的字段（xxx_en 缺失时回退中文）
+function pick(obj, field) {
+  return state.lang === "en" ? (obj[`${field}_en`] ?? obj[field]) : obj[field];
 }
 
 function updateUILanguage() {
-  const lang = state.lang || "zh";
-  const isEn = lang === "en";
+  const isEn = state.lang === "en";
   document.documentElement.lang = isEn ? "en" : "zh-CN";
 
-  if (elements.langBtnZh) elements.langBtnZh.classList.toggle("active", !isEn);
-  if (elements.langBtnEn) elements.langBtnEn.classList.toggle("active", isEn);
+  elements.langBtnZh?.classList.toggle("active", !isEn);
+  elements.langBtnEn?.classList.toggle("active", isEn);
 
   document.querySelectorAll("[data-i18n]").forEach((el) => {
-    const key = el.getAttribute("data-i18n");
-    const val = t(key);
-    if (val) el.textContent = val;
+    el.textContent = t(el.dataset.i18n);
   });
-
   document.querySelectorAll("[data-i18n-ph]").forEach((el) => {
-    const key = el.getAttribute("data-i18n-ph");
-    const val = t(key);
-    if (val) el.setAttribute("placeholder", val);
+    el.setAttribute("placeholder", t(el.dataset.i18nPh));
+  });
+  document.querySelectorAll("[data-i18n-title]").forEach((el) => {
+    el.setAttribute("title", t(el.dataset.i18nTitle));
+  });
+  document.querySelectorAll("[data-i18n-aria]").forEach((el) => {
+    el.setAttribute("aria-label", t(el.dataset.i18nAria));
   });
 
-  document.querySelectorAll("[data-i18n-title]").forEach((el) => {
-    const key = el.getAttribute("data-i18n-title");
-    const val = t(key);
-    if (val) el.setAttribute("title", val);
-  });
+  renderPomodoroState();
 }
 
 function setLanguage(newLang) {
@@ -119,49 +186,56 @@ function setLanguage(newLang) {
   showToast(t("toast_switched_lang"), "[LANG]");
 }
 
-
 // ================= 工具函数 =================
+// 统一使用本地日期，避免 toISOString() 在 UTC+8 等时区早上把日期算成前一天
+function toDateStr(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function parseDateStr(str) {
+  const [y, m, d] = str.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
 function todayString() {
-  return new Date().toISOString().slice(0, 10);
+  return toDateStr(new Date());
+}
+
+function daysBetween(fromStr, toStr) {
+  return Math.round((parseDateStr(toStr) - parseDateStr(fromStr)) / DAY_MS);
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function domainProgress(dom) {
+  if (dom.topics.length === 0) return 0;
+  const points = dom.topics.reduce((sum, topic) => sum + (state.topics[topic.code] || 0) / 3, 0);
+  return points / dom.topics.length; // 0 ~ 1
 }
 
 function calculateWeightedMastery() {
-  let totalScore = 0;
-  domains.forEach((dom) => {
-    let domainPoints = 0;
-    dom.topics.forEach((t) => {
-      const stage = state.topics[t.code] || 0;
-      domainPoints += stage / 3; // 0, 0.33, 0.66, 1
-    });
-    const domainRatio = dom.topics.length > 0 ? domainPoints / dom.topics.length : 0;
-    totalScore += domainRatio * dom.weight;
-  });
+  const totalScore = domains.reduce((sum, dom) => sum + domainProgress(dom) * dom.weight, 0);
   return Math.min(100, Math.round(totalScore));
 }
 
 function calculateStreak() {
-  if (!state.checkins || state.checkins.length === 0) return 0;
   const uniqueDates = [...new Set(state.checkins.map((c) => c.date))].sort().reverse();
-  const today = todayString();
-  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  if (uniqueDates.length === 0) return 0;
 
   // 如果最近一次打卡既不是今天也不是昨天，连胜断开
-  if (uniqueDates[0] !== today && uniqueDates[0] !== yesterday) {
-    return 0;
-  }
+  if (daysBetween(uniqueDates[0], todayString()) > 1) return 0;
 
-  let streak = 0;
-  let expected = new Date(uniqueDates[0]);
-
-  for (const dateStr of uniqueDates) {
-    const cur = new Date(dateStr);
-    const diffDays = Math.round((expected - cur) / 86400000);
-    if (diffDays === 0) {
-      streak++;
-      expected = new Date(cur.getTime() - 86400000);
-    } else {
-      break;
-    }
+  let streak = 1;
+  for (let i = 1; i < uniqueDates.length; i++) {
+    if (daysBetween(uniqueDates[i], uniqueDates[i - 1]) !== 1) break;
+    streak++;
   }
   return streak;
 }
@@ -171,12 +245,29 @@ function getNextUnfinishedDayIndex() {
   return planList.findIndex((_, idx) => !state.days[state.plan]?.[idx]);
 }
 
+// 旧版本记录没有 plan 字段，视为属于当前计划
+function checkinBelongsTo(c, plan, planDay) {
+  return (c.plan === undefined || c.plan === plan) && c.planDay === planDay;
+}
+
+function findCheckin(plan, planDay, date) {
+  return state.checkins.find((c) => checkinBelongsTo(c, plan, planDay) && c.date === date);
+}
+
+function newId() {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
 function showToast(message, icon = "[OK]") {
   const container = document.getElementById("toastContainer");
   if (!container) return;
   const toast = document.createElement("div");
-  toast.className = "toast-item";
-  toast.innerHTML = `<span>${icon}</span><span>${message}</span>`;
+  toast.className = "toast-message";
+  const iconEl = document.createElement("span");
+  iconEl.textContent = icon;
+  const msgEl = document.createElement("span");
+  msgEl.textContent = message;
+  toast.append(iconEl, msgEl);
   container.appendChild(toast);
   setTimeout(() => {
     toast.style.opacity = "0";
@@ -186,9 +277,14 @@ function showToast(message, icon = "[OK]") {
 }
 
 // 简易 Web Audio 提示音（番茄钟结束、打卡成功）
+// 复用同一个 AudioContext：浏览器对同时存在的实例数量有上限
+let audioCtx = null;
+
 function playChime(success = true) {
   try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    audioCtx ??= new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === "suspended") audioCtx.resume();
+    const ctx = audioCtx;
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.connect(gain);
@@ -236,7 +332,6 @@ const elements = {
   streakDays: document.getElementById("streakDays"),
   totalCheckins: document.getElementById("totalCheckins"),
   planDaysDone: document.getElementById("planDaysDone"),
-  planDaysTotal: document.getElementById("planDaysTotal"),
   planPercentText: document.getElementById("planPercentText"),
   verifiedTopicsCount: document.getElementById("verifiedTopicsCount"),
   coveredTopicsText: document.getElementById("coveredTopicsText"),
@@ -250,6 +345,7 @@ const elements = {
   planProgressPill: document.getElementById("planProgressPill"),
   dailyCardsContainer: document.getElementById("dailyCardsContainer"),
   sideStreakCount: document.getElementById("sideStreakCount"),
+  calendarWeekdayHeader: document.getElementById("calendarWeekdayHeader"),
   checkinCalendarCells: document.getElementById("checkinCalendarCells"),
   checkinNotesList: document.getElementById("checkinNotesList"),
   addNewCheckinNoteBtn: document.getElementById("addNewCheckinNoteBtn"),
@@ -321,6 +417,13 @@ const elements = {
   mistakeReviewRef: document.getElementById("mistakeReviewRef"),
   mistakeReflection: document.getElementById("mistakeReflection"),
 
+  // 考期弹窗
+  examDateModalOverlay: document.getElementById("examDateModalOverlay"),
+  closeExamDateModalBtn: document.getElementById("closeExamDateModalBtn"),
+  clearExamDateBtn: document.getElementById("clearExamDateBtn"),
+  examDateModalForm: document.getElementById("examDateModalForm"),
+  examDateInput: document.getElementById("examDateInput"),
+
   // 番茄钟弹窗
   pomodoroOverlay: document.getElementById("pomodoroOverlay"),
   closePomodoroModalBtn: document.getElementById("closePomodoroModalBtn"),
@@ -332,11 +435,47 @@ const elements = {
   pomodoroPresetBtns: document.querySelectorAll(".pomodoro-presets .preset-btn"),
 };
 
+// ================= 弹窗通用逻辑（Esc / 点击遮罩关闭、焦点管理） =================
+const modalOverlays = [
+  elements.checkinModalOverlay,
+  elements.mistakeModalOverlay,
+  elements.examDateModalOverlay,
+  elements.pomodoroOverlay,
+];
+let lastFocusedBeforeModal = null;
+
+function openModal(overlay, focusTarget) {
+  if (overlay.hidden) lastFocusedBeforeModal = document.activeElement;
+  overlay.hidden = false;
+  const target = focusTarget || overlay.querySelector("input, select, textarea, button");
+  target?.focus();
+}
+
+function closeModal(overlay) {
+  if (overlay.hidden) return;
+  overlay.hidden = true;
+  if (lastFocusedBeforeModal && document.contains(lastFocusedBeforeModal)) {
+    lastFocusedBeforeModal.focus();
+  }
+  lastFocusedBeforeModal = null;
+}
+
+modalOverlays.forEach((overlay) => {
+  overlay.addEventListener("mousedown", (e) => {
+    if (e.target === overlay) closeModal(overlay);
+  });
+});
+
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  const open = modalOverlays.find((o) => !o.hidden);
+  if (open) closeModal(open);
+});
+
 // ================= 模块渲染逻辑 =================
 
 // 1. 渲染 Hero 与顶部概览
 function renderHero() {
-  const isEn = state.lang === "en";
   const mastery = calculateWeightedMastery();
   elements.masteryPercent.textContent = `${mastery}%`;
   elements.masteryRing.style.setProperty("--mastery-deg", `${mastery * 3.6}deg`);
@@ -345,40 +484,33 @@ function renderHero() {
   const nextIdx = getNextUnfinishedDayIndex();
   const daysDoneCount = planList.filter((_, idx) => state.days[state.plan]?.[idx]).length;
 
-  // 今日行动
+  // 今日行动：始终展示第一个尚未完成的计划日
   if (nextIdx === -1) {
-    elements.todayDayBadge.textContent = isEn ? "Finished" : "已达成";
-    elements.todayStatusBadge.textContent = isEn ? "Plan Completed" : "已完成全部计划";
+    elements.todayDayBadge.textContent = t("today_finished_badge");
+    elements.todayStatusBadge.textContent = t("today_finished_status");
     elements.todayStatusBadge.className = "badge-status checked";
     elements.todayEstimateTime.textContent = "0";
-    elements.todayTitle.textContent = isEn
-      ? `Congratulations! ${state.plan}-Day Study Plan Completed`
-      : `恭喜！${state.plan} 天备考计划已全部打卡完成`;
-    elements.todayObjective.textContent = isEn
-      ? "Knowledge system fully established! Proceed to the Mock tab for timed simulations and targeted review."
-      : "知识体系已打通！现在进入 Mock 标签页，进行全真模拟测试并针对错因定向回补。";
-    elements.todayOutput.textContent = isEn
-      ? "Complete at least two 60-question timed mocks with scores >= 80%!"
-      : "完成至少两套 60 题计时 Mock，确保稳定达到 80% 以上！";
-    elements.todayCheckinBtn.innerHTML = `<span class="checkin-icon">[Done]</span><span>${isEn ? "All Plans Completed" : "计划已全部通关"}</span>`;
+    elements.todayTitle.textContent = t("today_finished_title", { n: state.plan });
+    elements.todayObjective.textContent = t("today_finished_obj");
+    elements.todayOutput.textContent = t("today_finished_out");
+    elements.todayCheckinBtn.innerHTML = `<span class="checkin-icon">[Done]</span><span>${escapeHtml(t("today_finished_btn"))}</span>`;
     elements.todayCheckinBtn.className = "btn-checkin is-done";
   } else {
     const todayTask = planList[nextIdx];
-    const isCompleted = Boolean(state.days[state.plan]?.[nextIdx]);
     elements.todayDayBadge.textContent = `Day ${nextIdx + 1}`;
-    elements.todayStatusBadge.textContent = isCompleted ? (isEn ? "Checked" : "已打卡") : (isEn ? "Pending" : "待打卡");
-    elements.todayStatusBadge.className = `badge-status ${isCompleted ? "checked" : ""}`;
+    elements.todayStatusBadge.textContent = t("today_pending");
+    elements.todayStatusBadge.className = "badge-status";
     elements.todayEstimateTime.textContent = String(todayTask.minutes);
-    elements.todayTitle.textContent = isEn ? (todayTask.title_en || todayTask.title) : todayTask.title;
-    elements.todayObjective.textContent = isEn ? (todayTask.objective_en || todayTask.objective) : todayTask.objective;
-    elements.todayOutput.textContent = isEn ? (todayTask.output_en || todayTask.output) : todayTask.output;
-    elements.todayCheckinBtn.innerHTML = `<span class="checkin-icon">[OK]</span><span>${isCompleted ? t("checked_in_label") : t("checkin_label")}</span>`;
-    elements.todayCheckinBtn.className = `btn-checkin ${isCompleted ? "is-done" : ""}`;
+    elements.todayTitle.textContent = pick(todayTask, "title");
+    elements.todayObjective.textContent = pick(todayTask, "objective");
+    elements.todayOutput.textContent = pick(todayTask, "output");
+    elements.todayCheckinBtn.innerHTML = `<span class="checkin-icon">[OK]</span><span>${escapeHtml(t("checkin_label"))}</span>`;
+    elements.todayCheckinBtn.className = "btn-checkin";
   }
 
   // 统计指标
   const streak = calculateStreak();
-  elements.streakDays.innerHTML = `${streak} <small>${t("days_unit")}</small>`;
+  elements.streakDays.innerHTML = `${streak} <small>${escapeHtml(t("days_unit"))}</small>`;
   elements.sideStreakCount.textContent = String(streak);
   elements.totalCheckins.textContent = String(state.checkins.length);
 
@@ -386,43 +518,37 @@ function renderHero() {
   const planPct = Math.round((daysDoneCount / planList.length) * 100);
   elements.planPercentText.textContent = `${t("stat_completion_rate")} ${planPct}%`;
 
+  const totalTopics = domains.reduce((sum, d) => sum + d.topics.length, 0);
   const verifiedCount = Object.values(state.topics).filter((s) => s === 3).length;
   const coveredCount = Object.values(state.topics).filter((s) => s >= 1).length;
-  elements.verifiedTopicsCount.innerHTML = `${verifiedCount} <small>/ 30</small>`;
-  elements.coveredTopicsText.textContent = `${t("stat_covered")} ${coveredCount}/30`;
+  elements.verifiedTopicsCount.innerHTML = `${verifiedCount} <small>/ ${totalTopics}</small>`;
+  elements.coveredTopicsText.textContent = `${t("stat_covered")} ${coveredCount}/${totalTopics}`;
 
   // Mock 就绪度评估
   const qualifiedMocks = state.mocks.filter((m) => m.correct / 60 >= 0.8).length;
   const isReady = qualifiedMocks >= 2;
   elements.readinessStatusText.textContent = isReady
-    ? (isEn ? "Exam Ready (2+ Mocks >= 80%)" : "已达就绪标准 (2次以上 80%+)")
-    : (isEn ? `Readiness: ${qualifiedMocks}/2 Mocks >= 80%` : `就绪度：${qualifiedMocks}/2 次 Mock 达到 80%`);
+    ? t("readiness_ready")
+    : t("readiness_progress", { n: qualifiedMocks });
   elements.readinessIndicator.className = `readiness-indicator ${isReady ? "is-ready" : ""}`;
-  elements.mockReadinessText.textContent = isReady ? (isEn ? "Ready" : "已就绪") : `${qualifiedMocks} / 2`;
+  elements.mockReadinessText.textContent = isReady ? t("readiness_ready_short") : `${qualifiedMocks} / 2`;
 
   if (state.mocks.length > 0) {
     const latest = state.mocks[0];
-    elements.latestMockText.textContent = isEn
-      ? `Latest: ${latest.correct}/60 (${latest.minutes}m)`
-      : `最近 ${latest.correct}/60 · ${latest.minutes}m`;
+    elements.latestMockText.textContent = t("latest_mock", { c: latest.correct, m: latest.minutes });
   } else {
     elements.latestMockText.textContent = t("stat_mock_no_record");
   }
 
   // 目标考期倒计时
   if (state.examDate) {
-    const target = new Date(state.examDate + "T00:00:00");
-    const diff = Math.ceil((target - new Date()) / (1000 * 60 * 60 * 24));
+    const diff = daysBetween(todayString(), state.examDate);
     if (diff > 0) {
-      elements.countdownLabel.textContent = isEn
-        ? `Exam in: ${diff} days (${state.examDate})`
-        : `考期倒计时：还有 ${diff} 天 (${state.examDate})`;
+      elements.countdownLabel.textContent = t("countdown_days", { n: diff, d: state.examDate });
     } else if (diff === 0) {
-      elements.countdownLabel.textContent = t("countdown_today", "今天就是考试日！保持冷静，自信应战！");
+      elements.countdownLabel.textContent = t("countdown_today");
     } else {
-      elements.countdownLabel.textContent = isEn
-        ? `Exam passed (${state.examDate}), click to edit`
-        : `考期已过 (${state.examDate})，点击修改`;
+      elements.countdownLabel.textContent = t("countdown_passed", { d: state.examDate });
     }
   } else {
     elements.countdownLabel.textContent = t("exam_countdown_unset");
@@ -431,16 +557,11 @@ function renderHero() {
 
 // 2. 渲染每日学习计划卡片流与日历
 function renderDailyPlan() {
-  const isEn = state.lang === "en";
   const planList = studyPlans[state.plan];
-  elements.planStreamHeading.textContent = isEn
-    ? `${state.plan}-Day ${state.plan === "7" ? "Sprint" : "Steady"} Study Plan`
-    : `${state.plan} 天${state.plan === "7" ? "冲刺" : "稳妥"}学习计划`;
+  elements.planStreamHeading.textContent = t(`plan_heading_${state.plan}`);
 
   const doneCount = planList.filter((_, idx) => state.days[state.plan]?.[idx]).length;
-  elements.planProgressPill.textContent = isEn
-    ? `Completed ${doneCount} / ${planList.length} days`
-    : `已完成 ${doneCount} / ${planList.length} 天`;
+  elements.planProgressPill.textContent = t("plan_progress_pill", { done: doneCount, total: planList.length });
 
   elements.dailyCardsContainer.innerHTML = "";
 
@@ -449,32 +570,28 @@ function renderDailyPlan() {
     const card = document.createElement("article");
     card.className = `daily-card ${isCompleted ? "is-completed" : ""}`;
 
-    const titleText = isEn ? (item.title_en || item.title) : item.title;
-    const objText = isEn ? (item.objective_en || item.objective) : item.objective;
-    const taskList = isEn ? (item.tasks_en || item.tasks) : item.tasks;
-    const outputText = isEn ? (item.output_en || item.output) : item.output;
-    const tasksHtml = taskList.map((t) => `<li>${t}</li>`).join("");
+    const tasksHtml = pick(item, "tasks").map((task) => `<li>${task}</li>`).join("");
 
     card.innerHTML = `
       <div class="daily-card-top">
         <div class="daily-day-label">
           <span class="day-badge-num">Day ${index + 1}</span>
-          <h4 class="daily-card-title">${titleText}</h4>
+          <h4 class="daily-card-title">${pick(item, "title")}</h4>
         </div>
-        <span class="daily-time-tag">${isEn ? `Suggested ${item.minutes} mins` : `建议 ${item.minutes} 分钟`}</span>
+        <span class="daily-time-tag">${escapeHtml(t("suggest_minutes", { n: item.minutes }))}</span>
       </div>
-      <p class="daily-card-objective">${objText}</p>
+      <p class="daily-card-objective">${pick(item, "objective")}</p>
       <ul class="daily-task-items">${tasksHtml}</ul>
       <div class="daily-card-deliverable">
-        <strong>${t("deliverable_tag")}</strong>
-        <span>${outputText}</span>
+        <strong>${escapeHtml(t("deliverable_tag"))}</strong>
+        <span>${pick(item, "output")}</span>
       </div>
       <div class="daily-card-footer">
         <label class="daily-checkbox-label">
           <input type="checkbox" data-day-index="${index}" ${isCompleted ? "checked" : ""} />
-          <span>${isCompleted ? t("already_completed") : t("mark_completed")}</span>
+          <span>${escapeHtml(isCompleted ? t("already_completed") : t("mark_completed"))}</span>
         </label>
-        <button type="button" class="btn-card-log" data-log-day="${index + 1}">${t("btn_write_reflection")}</button>
+        <button type="button" class="btn-card-log" data-log-day="${index + 1}">${escapeHtml(t("btn_write_reflection"))}</button>
       </div>
     `;
     elements.dailyCardsContainer.appendChild(card);
@@ -486,6 +603,11 @@ function renderDailyPlan() {
 
 // 渲染打卡日历（生成当月日期）
 function renderCalendar() {
+  elements.calendarWeekdayHeader.innerHTML = t("cal_weekdays")
+    .split(",")
+    .map((d) => `<span>${escapeHtml(d)}</span>`)
+    .join("");
+
   const container = elements.checkinCalendarCells;
   container.innerHTML = "";
   const now = new Date();
@@ -510,29 +632,31 @@ function renderCalendar() {
   // 填充当月天数
   for (let day = 1; day <= daysInMonth; day++) {
     const cell = document.createElement("div");
-    const dStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    const dStr = toDateStr(new Date(year, month, day));
     const isToday = day === todayDate;
     const isChecked = checkedDates.has(dStr);
 
     cell.className = `cal-cell ${isToday ? "today" : ""} ${isChecked ? "checked" : ""}`;
     cell.textContent = String(day);
-    cell.title = `${dStr}${isChecked ? " (已打卡)" : ""}`;
+    cell.title = `${dStr}${isChecked ? t("cal_checked_suffix") : ""}`;
 
     container.appendChild(cell);
   }
 }
 
-// 渲染打卡心得笔记
+// 渲染打卡心得笔记（按日期倒序）
 function renderCheckinNotes() {
   const container = elements.checkinNotesList;
   container.innerHTML = "";
 
-  const notes = state.checkins.filter((c) => c.note && c.note.trim() !== "");
+  const notes = state.checkins
+    .filter((c) => c.note && c.note.trim() !== "")
+    .sort((a, b) => b.date.localeCompare(a.date));
   if (notes.length === 0) {
     container.innerHTML = `
       <div class="empty-state">
-        <span>[暂无记录]</span>
-        <p>打卡时记录的学习笔记与思考心得，将在此处存档。</p>
+        <span>${escapeHtml(t("notes_empty_title"))}</span>
+        <p>${escapeHtml(t("notes_empty_desc"))}</p>
       </div>
     `;
     return;
@@ -543,8 +667,8 @@ function renderCheckinNotes() {
     card.className = "checkin-note-item";
     card.innerHTML = `
       <div class="note-item-header">
-        <strong>${item.date} · Day ${item.planDay || 1}</strong>
-        <span>${item.minutes || 120} 分钟</span>
+        <strong>${escapeHtml(item.date)} · Day ${item.planDay}</strong>
+        <span>${escapeHtml(t("note_minutes", { n: item.minutes }))}</span>
       </div>
       <p class="note-item-content">${escapeHtml(item.note)}</p>
     `;
@@ -552,20 +676,19 @@ function renderCheckinNotes() {
   });
 }
 
-function escapeHtml(text) {
-  const div = document.createElement("div");
-  div.textContent = text;
-  return div.innerHTML;
+// 3. 渲染 30 项考点深度库
+function stageOptionsHtml(stage) {
+  return [0, 1, 2, 3]
+    .map((s) => `<option value="${s}" ${stage === s ? "selected" : ""}>${escapeHtml(t(`stage_name_${s}`))}</option>`)
+    .join("");
 }
 
-// 3. 渲染 30 项考点深度库
 function renderBlueprint() {
-  const isEn = state.lang === "en";
   const container = elements.domainsAccordionContainer;
   container.innerHTML = "";
 
-  const searchKeyword = state.searchKeyword.toLowerCase().trim();
-  const stageFilter = state.activeStageFilter;
+  const searchKeyword = ui.searchKeyword.toLowerCase().trim();
+  const stageFilter = ui.activeStageFilter;
 
   domains.forEach((dom) => {
     // 过滤 topics
@@ -575,9 +698,7 @@ function renderBlueprint() {
         return false;
       }
       if (!searchKeyword) return true;
-      const tTitle = isEn ? (topic.title_en || topic.title) : topic.title;
-      const tSummary = isEn ? (topic.summary_en || topic.summary) : topic.summary;
-      const haystack = `${topic.code} ${tTitle} ${topic.official} ${tSummary}`.toLowerCase();
+      const haystack = `${topic.code} ${pick(topic, "title")} ${topic.official} ${pick(topic, "summary")}`.toLowerCase();
       return haystack.includes(searchKeyword);
     });
 
@@ -585,17 +706,10 @@ function renderBlueprint() {
       return; // 搜索无匹配时隐藏整个 Domain
     }
 
-    // 计算该 Domain 进度
-    let domainPoints = 0;
-    dom.topics.forEach((t) => {
-      domainPoints += (state.topics[t.code] || 0) / 3;
-    });
-    const domPercent = Math.round((domainPoints / dom.topics.length) * 100);
+    const domPercent = Math.round(domainProgress(dom) * 100);
 
     const card = document.createElement("div");
     card.className = "domain-accordion-card is-open";
-
-    const domSummary = isEn ? (dom.summary_en || dom.summary) : dom.summary;
 
     card.innerHTML = `
       <div class="domain-accordion-header" data-domain-toggle="${dom.code}">
@@ -603,11 +717,11 @@ function renderBlueprint() {
           <span class="domain-code-badge">${dom.code}</span>
           <div class="domain-title-text">
             <h3>${dom.code} · ${dom.title}</h3>
-            <p>${domSummary}</p>
+            <p>${pick(dom, "summary")}</p>
           </div>
         </div>
         <div class="domain-progress-side">
-          <span class="domain-weight-tag">${t("domain_weight_prefix")} ${dom.weight}%</span>
+          <span class="domain-weight-tag">${escapeHtml(t("domain_weight_prefix"))} ${dom.weight}%</span>
           <div class="domain-bar-wrapper">
             <div class="domain-bar-fill" style="width: ${domPercent}%"></div>
           </div>
@@ -621,14 +735,8 @@ function renderBlueprint() {
 
     filteredTopics.forEach((topic) => {
       const stage = state.topics[topic.code] ?? 0;
-      const tTitle = isEn ? (topic.title_en || topic.title) : topic.title;
-      const tSummary = isEn ? (topic.summary_en || topic.summary) : topic.summary;
-      const kpList = isEn ? (topic.keyPoints_en || topic.keyPoints) : topic.keyPoints;
-      const apList = isEn ? (topic.antiPatterns_en || topic.antiPatterns) : topic.antiPatterns;
-      const evText = isEn ? (topic.evidence_en || topic.evidence) : topic.evidence;
-
-      const keyPointsHtml = kpList.map((kp) => `<li>${kp}</li>`).join("");
-      const antiPatternsHtml = apList.map((ap) => `<li>${ap}</li>`).join("");
+      const keyPointsHtml = pick(topic, "keyPoints").map((kp) => `<li>${kp}</li>`).join("");
+      const antiPatternsHtml = pick(topic, "antiPatterns").map((ap) => `<li>${ap}</li>`).join("");
 
       const topicEl = document.createElement("article");
       topicEl.className = "topic-card";
@@ -637,31 +745,28 @@ function renderBlueprint() {
           <div class="topic-title-area">
             <span class="topic-num-badge">${topic.code}</span>
             <div class="topic-headings">
-              <h4>${tTitle}</h4>
+              <h4>${pick(topic, "title")}</h4>
               <div class="topic-official-name">${topic.official}</div>
             </div>
           </div>
           <div class="stage-select-box">
-            <label for="stage-${topic.code}" class="sr-only">掌握阶段</label>
+            <label for="stage-${topic.code}" class="sr-only">${escapeHtml(t("stage_select_aria"))}</label>
             <select id="stage-${topic.code}" data-topic-code="${topic.code}">
-              <option value="0" ${stage === 0 ? "selected" : ""}>${isEn ? "0. Unstarted" : "0. 未开始"}</option>
-              <option value="1" ${stage === 1 ? "selected" : ""}>${isEn ? "1. Concept" : "1. 理解概念"}</option>
-              <option value="2" ${stage === 2 ? "selected" : ""}>${isEn ? "2. Practice" : "2. 完成练习"}</option>
-              <option value="3" ${stage === 3 ? "selected" : ""}>${isEn ? "3. Verified" : "3. 新题验证"}</option>
+              ${stageOptionsHtml(stage)}
             </select>
           </div>
         </div>
-        <p class="topic-summary-box"><strong>${isEn ? "Core Summary: " : "考纲核心："}</strong>${tSummary}</p>
+        <p class="topic-summary-box"><strong>${escapeHtml(t("core_summary_label"))}</strong>${pick(topic, "summary")}</p>
         <div class="topic-keypoints">
-          <strong>[${t("key_principles_label")}] </strong>
+          <strong>[${escapeHtml(t("key_principles_label"))}] </strong>
           <ul>${keyPointsHtml}</ul>
         </div>
         <div class="topic-antipatterns">
-          <strong>[${t("anti_patterns_label")}] </strong>
+          <strong>[${escapeHtml(t("anti_patterns_label"))}] </strong>
           <ul>${antiPatternsHtml}</ul>
         </div>
         <div class="topic-evidence-box">
-          <span><strong>[${t("evidence_label")}] </strong>${evText}</span>
+          <span><strong>[${escapeHtml(t("evidence_label"))}] </strong>${pick(topic, "evidence")}</span>
         </div>
       `;
       bodyContainer.appendChild(topicEl);
@@ -673,8 +778,8 @@ function renderBlueprint() {
   if (container.children.length === 0) {
     container.innerHTML = `
       <div class="empty-state">
-        <span>[${isEn ? "No Matching Tasks" : "无结果"}]</span>
-        <p>${isEn ? `No tasks found matching "${escapeHtml(state.searchKeyword)}". Try clearing filters.` : `没有找到与「${escapeHtml(state.searchKeyword)}」或当前筛选条件匹配的考点，请尝试清除搜索词。`}</p>
+        <span>${escapeHtml(t("no_match_title"))}</span>
+        <p>${escapeHtml(t("no_match_desc", { kw: ui.searchKeyword }))}</p>
       </div>
     `;
   }
@@ -688,19 +793,16 @@ function renderDecisionLens() {
   decisionRules.forEach((item) => {
     const card = document.createElement("div");
     card.className = "rule-card";
-    const rTitle = isEn ? (item.title_en || item.title) : item.title;
-    const rRule = isEn ? (item.rule_en || item.rule) : item.rule;
-    const rTrap = isEn ? (item.trap_en || item.trap) : item.trap;
     card.innerHTML = `
       <div class="rule-card-header">
         <span class="rule-step-badge">${item.step}</span>
-        <h4>${rTitle}</h4>
+        <h4>${pick(item, "title")}</h4>
       </div>
       <div class="rule-body">
-        <strong>${t("rule_criterion_label")}</strong>${rRule}
+        <strong>${escapeHtml(t("rule_criterion_label"))}</strong>${pick(item, "rule")}
       </div>
       <div class="rule-trap">
-        <strong>${t("rule_trap_label")}</strong>${rTrap}
+        <strong>${escapeHtml(t("rule_trap_label"))}</strong>${pick(item, "trap")}
       </div>
     `;
     elements.decisionRulesGrid.appendChild(card);
@@ -711,14 +813,12 @@ function renderDecisionLens() {
   highFrequencyTraps.forEach((trap) => {
     const card = document.createElement("div");
     card.className = "trap-card";
-    const tName = isEn ? (trap.trap_en || trap.trap) : trap.trap;
-    const tReason = isEn ? (trap.reason_en || trap.reason) : trap.reason;
     card.innerHTML = `
       <div class="trap-title">
-        <span>${t("trap_tag")}</span>
-        <span>${tName}</span>
+        <span>${escapeHtml(t("trap_tag"))}</span>
+        <span>${pick(trap, "trap")}</span>
       </div>
-      <p class="trap-reason"><strong>${t("trap_reason_label")}</strong>${tReason}</p>
+      <p class="trap-reason"><strong>${escapeHtml(t("trap_reason_label"))}</strong>${pick(trap, "reason")}</p>
     `;
     elements.trapsGrid.appendChild(card);
   });
@@ -728,16 +828,14 @@ function renderDecisionLens() {
   officialScenarios.forEach((sc) => {
     const card = document.createElement("div");
     card.className = "scenario-card";
-    const scTasks = isEn ? (sc.keyTasks_en || sc.keyTasks) : sc.keyTasks;
-    const taskPills = scTasks.map((t) => `<span class="scenario-task-pill">${t}</span>`).join("");
-    const scFocus = isEn ? (sc.focus_en || sc.focus) : sc.focus;
+    const taskPills = pick(sc, "keyTasks").map((task) => `<span class="scenario-task-pill">${task}</span>`).join("");
     card.innerHTML = `
       <div class="scenario-top">
-        <span class="scenario-id-tag">${t("scenario_prefix")} ${sc.id}</span>
+        <span class="scenario-id-tag">${escapeHtml(t("scenario_prefix"))} ${sc.id}</span>
       </div>
       <h4>${isEn ? sc.title : sc.nameZh}</h4>
       <div class="scenario-en-title">${isEn ? sc.nameZh : sc.title}</div>
-      <p class="scenario-focus">${scFocus}</p>
+      <p class="scenario-focus">${pick(sc, "focus")}</p>
       <div class="scenario-tasks-tags">${taskPills}</div>
     `;
     elements.scenariosGrid.appendChild(card);
@@ -745,20 +843,25 @@ function renderDecisionLens() {
 }
 
 // 5. 渲染 Mock 成绩与错题本
+function errorCategoryName(cat, short = false) {
+  if (state.lang === "en") return cat.name_en || cat.name;
+  return short ? cat.name.split(" ")[0] : cat.name;
+}
+
 function renderMockAndMistakes() {
   // Mock 历史
   elements.mockHistoryList.innerHTML = "";
   if (state.mocks.length === 0) {
     elements.mockHistoryList.innerHTML = `
       <div class="empty-state">
-        <span>[暂无记录]</span>
-        <p>暂无 Mock 记录。建议按 60 题 / 120 分钟进行全真计时模拟，在此记录分数以评估就绪度。</p>
+        <span>${escapeHtml(t("mock_empty_title"))}</span>
+        <p>${escapeHtml(t("mock_empty_desc"))}</p>
       </div>
     `;
   } else {
     state.mocks.forEach((m) => {
-      const isPass = m.correct / 60 >= 0.72;
       const isQualified = m.correct / 60 >= 0.8;
+      const meta = t("mock_meta", { m: m.minutes, w: m.weakestDomain }) + (m.notes ? ` · ${m.notes}` : "");
       const item = document.createElement("div");
       item.className = "mock-history-item";
       item.innerHTML = `
@@ -767,11 +870,11 @@ function renderMockAndMistakes() {
             ${m.correct}
           </div>
           <div class="mock-details">
-            <strong>${m.date} · ${m.source || "计时模拟"} (${Math.round((m.correct / 60) * 100)}%)</strong>
-            <span>耗时 ${m.minutes} 分钟 · 最弱：${m.weakestDomain} ${m.notes ? "· " + escapeHtml(m.notes) : ""}</span>
+            <strong>${escapeHtml(m.date)} · ${escapeHtml(m.source || t("mock_default_source"))} (${Math.round((m.correct / 60) * 100)}%)</strong>
+            <span>${escapeHtml(meta)}</span>
           </div>
         </div>
-        <button type="button" class="btn-delete-item" data-delete-mock="${m.id}" title="删除记录">删除</button>
+        <button type="button" class="btn-delete-item" data-delete-mock="${escapeHtml(m.id)}">${escapeHtml(t("btn_delete"))}</button>
       `;
       elements.mockHistoryList.appendChild(item);
     });
@@ -780,16 +883,18 @@ function renderMockAndMistakes() {
   // 错因筛选胶囊
   elements.errorCatFilterContainer.innerHTML = "";
   const allPill = document.createElement("button");
-  allPill.className = `cat-pill ${state.activeErrorCat === "all" ? "active" : ""}`;
-  allPill.textContent = `全部 (${state.mistakes.length})`;
+  allPill.type = "button";
+  allPill.className = `cat-pill ${ui.activeErrorCat === "all" ? "active" : ""}`;
+  allPill.textContent = t("all_count", { n: state.mistakes.length });
   allPill.dataset.cat = "all";
   elements.errorCatFilterContainer.appendChild(allPill);
 
   errorCategories.forEach((cat) => {
     const count = state.mistakes.filter((m) => m.errorCategory === cat.code).length;
     const pill = document.createElement("button");
-    pill.className = `cat-pill ${state.activeErrorCat === cat.code ? "active" : ""}`;
-    pill.textContent = `${cat.name.split(" ")[0]} (${count})`;
+    pill.type = "button";
+    pill.className = `cat-pill ${ui.activeErrorCat === cat.code ? "active" : ""}`;
+    pill.textContent = `${errorCategoryName(cat, true)} (${count})`;
     pill.dataset.cat = cat.code;
     elements.errorCatFilterContainer.appendChild(pill);
   });
@@ -797,15 +902,16 @@ function renderMockAndMistakes() {
   // 错题列表
   elements.mistakesListContainer.innerHTML = "";
   const filteredMistakes = state.mistakes.filter((m) => {
-    if (state.activeErrorCat === "all") return true;
-    return m.errorCategory === state.activeErrorCat;
+    if (ui.activeErrorCat === "all") return true;
+    return m.errorCategory === ui.activeErrorCat;
   });
 
   if (filteredMistakes.length === 0) {
+    const desc = state.mistakes.length === 0 ? t("mistakes_empty_desc") : t("mistakes_filter_empty");
     elements.mistakesListContainer.innerHTML = `
       <div class="empty-state">
-        <span>[暂无记录]</span>
-        <p>当前分类下暂无错题。在平时的场景练习或 Mock 模拟中遇到错误，点击上方「+ 添加一道错题」记录复盘！</p>
+        <span>${escapeHtml(t("mistakes_empty_title"))}</span>
+        <p>${escapeHtml(desc)}</p>
       </div>
     `;
     return;
@@ -818,56 +924,71 @@ function renderMockAndMistakes() {
     card.innerHTML = `
       <div class="mistake-card-header">
         <div class="mistake-tag-row">
-          <span class="tag-qno">${escapeHtml(m.questionNo || "错题")}</span>
-          <span class="tag-cat">${catObj ? catObj.name : m.errorCategory}</span>
-          ${m.taskCode ? `<span class="tag-qno">${m.taskCode}</span>` : ""}
+          <span class="tag-qno">${escapeHtml(m.questionNo || t("mistake_default_qno"))}</span>
+          <span class="tag-cat">${escapeHtml(catObj ? errorCategoryName(catObj) : m.errorCategory)}</span>
+          ${m.taskCode ? `<span class="tag-qno">${escapeHtml(m.taskCode)}</span>` : ""}
         </div>
-        <button type="button" class="btn-delete-item" data-delete-mistake="${m.id}" title="删除此题">删除</button>
+        <button type="button" class="btn-delete-item" data-delete-mistake="${escapeHtml(m.id)}">${escapeHtml(t("btn_delete"))}</button>
       </div>
       <div class="mistake-stem">${escapeHtml(m.stem)}</div>
       <div class="mistake-answers-diff">
-        <div class="ans-wrong">[错误选项] ${escapeHtml(m.myAnswer)}</div>
-        <div class="ans-right">[正确选项] ${escapeHtml(m.correctAnswer)}</div>
+        <div class="ans-wrong">${escapeHtml(t("mistake_wrong_tag"))} ${escapeHtml(m.myAnswer)}</div>
+        <div class="ans-right">${escapeHtml(t("mistake_right_tag"))} ${escapeHtml(m.correctAnswer)}</div>
       </div>
-      ${m.reflection ? `<div class="mistake-reflection"><strong>[复盘总结] </strong>${escapeHtml(m.reflection)}</div>` : ""}
+      ${m.reflection ? `<div class="mistake-reflection"><strong>${escapeHtml(t("mistake_reflection_tag"))} </strong>${escapeHtml(m.reflection)}</div>` : ""}
+      ${m.reviewRef ? `<div class="mistake-reflection"><strong>${escapeHtml(t("mistake_ref_tag"))} </strong>${escapeHtml(m.reviewRef)}</div>` : ""}
     `;
     elements.mistakesListContainer.appendChild(card);
   });
 }
 
 // 6. 渲染考前清单与资源
+function renderChecklistScore() {
+  const checkedCount = preExamChecklist.filter((item) => state.checklist[item.id]).length;
+  elements.checklistScorePill.textContent = `${t("checklist_score_prefix")} ${checkedCount} / ${preExamChecklist.length}`;
+}
+
+function renderResourceLinks(container, list) {
+  container.innerHTML = "";
+  list.forEach((r) => {
+    const a = document.createElement("a");
+    a.className = "resource-link-item";
+    a.href = r.url;
+    a.target = "_blank";
+    a.rel = "noreferrer";
+    a.innerHTML = `
+      <strong>${pick(r, "name")} ↗</strong>
+      <span>${pick(r, "desc")}</span>
+    `;
+    container.appendChild(a);
+  });
+}
+
 function renderResourcesAndChecklist() {
   const isEn = state.lang === "en";
   // 考前 10 项清单
   elements.preExamChecklistContainer.innerHTML = "";
-  let checkedCount = 0;
   preExamChecklist.forEach((item) => {
     const isChecked = Boolean(state.checklist[item.id]);
-    if (isChecked) checkedCount++;
     const row = document.createElement("label");
     row.className = `checklist-row ${isChecked ? "checked" : ""}`;
-    const txt = isEn ? (item.text_en || item.text) : item.text;
     row.innerHTML = `
       <input type="checkbox" data-checklist-id="${item.id}" ${isChecked ? "checked" : ""} />
-      <span>${txt}</span>
+      <span>${pick(item, "text")}</span>
     `;
     elements.preExamChecklistContainer.appendChild(row);
   });
-  elements.checklistScorePill.textContent = `${t("checklist_score_prefix")} ${checkedCount} / ${preExamChecklist.length}`;
+  renderChecklistScore();
 
   // 版本分歧对照表
   elements.divergenceTableBody.innerHTML = "";
   versionDivergence.forEach((v) => {
     const tr = document.createElement("tr");
-    const vTopic = isEn ? (v.topic_en || v.topic) : v.topic;
-    const vGuide = isEn ? (v.examGuide_en || v.examGuide) : v.examGuide;
-    const vDocs = isEn ? (v.currentDocs_en || v.currentDocs) : v.currentDocs;
-    const vStrat = isEn ? (v.strategy_en || v.strategy) : v.strategy;
     tr.innerHTML = `
-      <td><strong>${vTopic}</strong></td>
-      <td><code>${vGuide}</code></td>
-      <td><code>${vDocs}</code></td>
-      <td>${vStrat}</td>
+      <td><strong>${pick(v, "topic")}</strong></td>
+      <td><code>${pick(v, "examGuide")}</code></td>
+      <td><code>${pick(v, "currentDocs")}</code></td>
+      <td>${pick(v, "strategy")}</td>
     `;
     elements.divergenceTableBody.appendChild(tr);
   });
@@ -881,33 +1002,8 @@ function renderResourcesAndChecklist() {
   });
 
   // 资源链接
-  elements.officialResourcesContainer.innerHTML = "";
-  studyResources.official.forEach((r) => {
-    const a = document.createElement("a");
-    a.className = "resource-link-item";
-    a.href = r.url;
-    a.target = "_blank";
-    a.rel = "noreferrer";
-    a.innerHTML = `
-      <strong>${r.name} ↗</strong>
-      <span>${isEn ? (r.desc_en || r.desc) : r.desc}</span>
-    `;
-    elements.officialResourcesContainer.appendChild(a);
-  });
-
-  elements.communityResourcesContainer.innerHTML = "";
-  studyResources.community.forEach((r) => {
-    const a = document.createElement("a");
-    a.className = "resource-link-item";
-    a.href = r.url;
-    a.target = "_blank";
-    a.rel = "noreferrer";
-    a.innerHTML = `
-      <strong>${r.name} ↗</strong>
-      <span>${isEn ? (r.desc_en || r.desc) : r.desc}</span>
-    `;
-    elements.communityResourcesContainer.appendChild(a);
-  });
+  renderResourceLinks(elements.officialResourcesContainer, studyResources.official);
+  renderResourceLinks(elements.communityResourcesContainer, studyResources.community);
 }
 
 // 刷新整个视图
@@ -930,10 +1026,11 @@ function renderAll() {
 // 计划切换 (7天 vs 14天)
 elements.planBtns.forEach((btn) => {
   btn.addEventListener("click", () => {
+    if (state.plan === btn.dataset.plan) return;
     state.plan = btn.dataset.plan;
     saveState();
     renderAll();
-    showToast(`已切换为 ${state.plan} 天学习计划`, "[PLAN]");
+    showToast(t("toast_plan_switched", { n: state.plan }), "[PLAN]");
   });
 });
 
@@ -950,102 +1047,132 @@ elements.tabBtns.forEach((btn) => {
 elements.dailyCardsContainer.addEventListener("change", (e) => {
   const checkbox = e.target.closest("[data-day-index]");
   if (!checkbox) return;
-  const idx = checkbox.dataset.dayIndex;
-  state.days[state.plan][idx] = checkbox.checked;
+  const idx = Number(checkbox.dataset.dayIndex);
+  const planDay = idx + 1;
 
   if (checkbox.checked) {
-    // 自动添加打卡记录
+    state.days[state.plan][idx] = true;
+    // 自动添加打卡记录（同一天同一计划日只记一条）
     const today = todayString();
-    if (!state.checkins.some((c) => c.date === today && c.planDay === Number(idx) + 1)) {
+    if (!findCheckin(state.plan, planDay, today)) {
+      const dayItem = studyPlans[state.plan][idx];
       state.checkins.unshift({
-        id: String(Date.now()),
+        id: newId(),
         date: today,
-        minutes: studyPlans[state.plan][idx]?.minutes || 120,
-        planDay: Number(idx) + 1,
-        note: `完成 Day ${Number(idx) + 1}：${studyPlans[state.plan][idx]?.title}`,
+        minutes: dayItem?.minutes || 120,
+        plan: state.plan,
+        planDay,
+        note: t("auto_checkin_note", { n: planDay, title: pick(dayItem, "title") }),
+        auto: true,
       });
     }
     playChime(true);
-    showToast(`Day ${Number(idx) + 1} 打卡成功！连续学习 ${calculateStreak()} 天`, "[打卡]");
+    showToast(t("toast_day_checked", { n: planDay, s: calculateStreak() }), "[CHECK-IN]");
+  } else {
+    // 取消完成：同步移除该计划日的打卡记录，避免连胜与总次数虚高
+    const related = state.checkins.filter((c) => checkinBelongsTo(c, state.plan, planDay));
+    const hasUserNotes = related.some((c) => !c.auto && c.note.trim() !== "");
+    if (hasUserNotes && !confirm(t("confirm_uncheck_day", { n: planDay, c: related.length }))) {
+      checkbox.checked = true;
+      return;
+    }
+    state.days[state.plan][idx] = false;
+    state.checkins = state.checkins.filter((c) => !related.includes(c));
   }
 
   saveState();
   renderAll();
 });
 
-// 点击卡片上的“写今日打卡心得”
+// 点击卡片上的"写今日打卡心得"
 elements.dailyCardsContainer.addEventListener("click", (e) => {
   const btn = e.target.closest("[data-log-day]");
   if (!btn) return;
-  const dayNum = Number(btn.dataset.logDay);
-  openCheckinModal(dayNum);
+  openCheckinModal(Number(btn.dataset.logDay));
 });
 
 // 今日行动一键打卡
 elements.todayCheckinBtn.addEventListener("click", () => {
   const nextIdx = getNextUnfinishedDayIndex();
   if (nextIdx === -1) {
-    showToast("当前计划所有天数均已打卡完成！", "[达成]");
+    showToast(t("toast_all_done"), "[DONE]");
     return;
   }
   openCheckinModal(nextIdx + 1);
 });
 
-// 打开打卡弹窗
+// 打卡弹窗：若同一日期 + 计划日已有记录，则预填并在提交时更新该记录
+function fillCheckinFormFromExisting() {
+  const planDay = Number(elements.checkinDayIndex.value) + 1;
+  const existing = findCheckin(state.plan, planDay, elements.checkinDate.value);
+  elements.checkinDuration.value = String(existing?.minutes || studyPlans[state.plan][planDay - 1]?.minutes || 120);
+  elements.checkinNote.value = existing && !existing.auto ? existing.note : "";
+}
+
 function openCheckinModal(defaultDay = 1) {
   elements.checkinDate.value = todayString();
-  const isEn = state.lang === "en";
-  elements.checkinDuration.value = String(studyPlans[state.plan][defaultDay - 1]?.minutes || 120);
 
   // 填充下拉选项
   elements.checkinDayIndex.innerHTML = "";
   studyPlans[state.plan].forEach((d, idx) => {
     const opt = document.createElement("option");
     opt.value = String(idx);
-    const dayTitle = isEn ? (d.title_en || d.title) : d.title;
-    opt.textContent = `Day ${idx + 1} · ${dayTitle}`;
+    opt.textContent = `Day ${idx + 1} · ${pick(d, "title")}`;
     if (idx + 1 === defaultDay) opt.selected = true;
     elements.checkinDayIndex.appendChild(opt);
   });
 
-  elements.checkinNote.value = "";
-  elements.checkinModalOverlay.hidden = false;
+  fillCheckinFormFromExisting();
+  openModal(elements.checkinModalOverlay, elements.checkinNote);
 }
 
-elements.closeCheckinModalBtn.addEventListener("click", () => {
-  elements.checkinModalOverlay.hidden = true;
-});
-elements.cancelCheckinModalBtn.addEventListener("click", () => {
-  elements.checkinModalOverlay.hidden = true;
-});
+elements.checkinDate.addEventListener("change", fillCheckinFormFromExisting);
+elements.checkinDayIndex.addEventListener("change", fillCheckinFormFromExisting);
+
+elements.closeCheckinModalBtn.addEventListener("click", () => closeModal(elements.checkinModalOverlay));
+elements.cancelCheckinModalBtn.addEventListener("click", () => closeModal(elements.checkinModalOverlay));
 elements.addNewCheckinNoteBtn.addEventListener("click", () => {
-  openCheckinModal(1);
+  const nextIdx = getNextUnfinishedDayIndex();
+  openCheckinModal(nextIdx === -1 ? 1 : nextIdx + 1);
 });
 
 // 提交打卡表单
 elements.checkinModalForm.addEventListener("submit", (e) => {
   e.preventDefault();
-  const dateVal = elements.checkinDate.value;
-  const durationVal = Number(elements.checkinDuration.value) || 120;
+  const dateVal = asDate(elements.checkinDate.value, todayString());
+  const durationVal = asNumber(elements.checkinDuration.value, 1, 1440, 120);
   const dayIdx = Number(elements.checkinDayIndex.value);
+  const planDay = dayIdx + 1;
   const noteVal = elements.checkinNote.value.trim();
 
   // 标记该天计划完成
   state.days[state.plan][dayIdx] = true;
 
-  // 写入打卡记录
-  state.checkins.unshift({
-    id: String(Date.now()),
-    date: dateVal,
-    minutes: durationVal,
-    planDay: dayIdx + 1,
-    note: noteVal,
-  });
+  // 写入打卡记录：同一日期 + 计划日只保留一条
+  const existing = findCheckin(state.plan, planDay, dateVal);
+  if (existing) {
+    existing.minutes = durationVal;
+    existing.plan = state.plan;
+    if (noteVal || !existing.auto) {
+      existing.note = noteVal;
+      existing.auto = false;
+    }
+  } else {
+    state.checkins.unshift({
+      id: newId(),
+      date: dateVal,
+      minutes: durationVal,
+      plan: state.plan,
+      planDay,
+      note: noteVal,
+      auto: false,
+    });
+  }
 
   saveState();
-  elements.checkinModalOverlay.hidden = true;
+  closeModal(elements.checkinModalOverlay);
   playChime(true);
-  showToast(`已成功记录打卡！连续学习 ${calculateStreak()} 天`, "[打卡]");
+  showToast(t("toast_checkin_saved", { s: calculateStreak() }), "[CHECK-IN]");
   renderAll();
 });
 
@@ -1054,96 +1181,73 @@ elements.domainsAccordionContainer.addEventListener("change", (e) => {
   const sel = e.target.closest("[data-topic-code]");
   if (!sel) return;
   const code = sel.dataset.topicCode;
-  const stage = Number(sel.value);
-  state.topics[code] = stage;
+  state.topics[code] = Number(sel.value);
   saveState();
   renderHero(); // 快速更新环状图与统计
 
-  // 更新卡片自身外框
-  const domain = domains.find((d) => d.topics.some((t) => t.code === code));
-  if (domain) {
-    let domainPoints = 0;
-    domain.topics.forEach((t) => {
-      domainPoints += (state.topics[t.code] || 0) / 3;
-    });
-    const domPercent = Math.round((domainPoints / domain.topics.length) * 100);
-    const card = sel.closest(".domain-accordion-card");
-    if (card) {
-      const fill = card.querySelector(".domain-bar-fill");
-      if (fill) fill.style.width = `${domPercent}%`;
-    }
-  }
+  // 更新卡片自身进度条
+  const domain = domains.find((d) => d.topics.some((topic) => topic.code === code));
+  const fill = sel.closest(".domain-accordion-card")?.querySelector(".domain-bar-fill");
+  if (domain && fill) fill.style.width = `${Math.round(domainProgress(domain) * 100)}%`;
 });
 
 // 手风琴折叠展开
 elements.domainsAccordionContainer.addEventListener("click", (e) => {
   const header = e.target.closest("[data-domain-toggle]");
   if (!header) return;
-  const card = header.closest(".domain-accordion-card");
-  if (card) {
-    card.classList.toggle("is-open");
-  }
+  header.closest(".domain-accordion-card")?.classList.toggle("is-open");
 });
 
 // 考点搜索与过滤
 elements.topicSearchInput.addEventListener("input", (e) => {
-  state.searchKeyword = e.target.value;
+  ui.searchKeyword = e.target.value;
   renderBlueprint();
 });
 
 elements.stageFilterBtns.forEach((btn) => {
   btn.addEventListener("click", () => {
     elements.stageFilterBtns.forEach((b) => b.classList.toggle("active", b === btn));
-    state.activeStageFilter = btn.dataset.filterStage;
+    ui.activeStageFilter = btn.dataset.filterStage;
     renderBlueprint();
   });
 });
 
 // 复制 AI 刷题 Prompt
 elements.copyAiPromptBtn.addEventListener("click", async () => {
-  const isEn = state.lang === "en";
-  const promptToCopy = isEn ? (window.aiCoachPromptEn || aiCoachPromptEn || aiCoachPrompt) : aiCoachPrompt;
+  const promptToCopy = state.lang === "en" ? aiCoachPromptEn : aiCoachPrompt;
   try {
     await navigator.clipboard.writeText(promptToCopy);
-    playChime(true);
-    showToast(t("toast_prompt_copied"), "[PROMPT]");
   } catch (err) {
-    // 降级方案
+    // 降级方案（file:// 等非安全上下文）
     const ta = document.createElement("textarea");
     ta.value = promptToCopy;
     document.body.appendChild(ta);
     ta.select();
     document.execCommand("copy");
     ta.remove();
-    showToast(t("toast_prompt_copied"), "[PROMPT]");
   }
+  playChime(true);
+  showToast(t("toast_prompt_copied"), "[PROMPT]");
 });
 
 // 提交 Mock 记录
 elements.mockEntryForm.addEventListener("submit", (e) => {
   e.preventDefault();
-  const correctVal = Number(elements.mockCorrect.value);
-  const minutesVal = Number(elements.mockMinutes.value);
-  const dateVal = elements.mockDate.value || todayString();
-  const weakestVal = elements.mockWeakest.value;
-  const sourceVal = elements.mockSource.value.trim();
-  const notesVal = elements.mockNotes.value.trim();
-
   state.mocks.unshift({
-    id: String(Date.now()),
-    date: dateVal,
-    correct: correctVal,
-    minutes: minutesVal,
-    weakestDomain: weakestVal,
-    source: sourceVal,
-    notes: notesVal,
+    id: newId(),
+    date: asDate(elements.mockDate.value, todayString()),
+    correct: asNumber(elements.mockCorrect.value, 0, 60, 0),
+    minutes: asNumber(elements.mockMinutes.value, 0, 600, 0),
+    weakestDomain: elements.mockWeakest.value,
+    source: elements.mockSource.value.trim(),
+    notes: elements.mockNotes.value.trim(),
   });
 
   saveState();
   elements.mockEntryForm.reset();
   elements.mockDate.value = todayString();
   playChime(true);
-  showToast("Mock 记录已保存！已实时重算就绪度状态", "[MOCK]");
+  showToast(t("toast_mock_saved"), "[MOCK]");
   renderHero();
   renderMockAndMistakes();
 });
@@ -1153,7 +1257,7 @@ elements.mockHistoryList.addEventListener("click", (e) => {
   const btn = e.target.closest("[data-delete-mock]");
   if (!btn) return;
   const id = btn.dataset.deleteMock;
-  if (!confirm("确定删除这条 Mock 记录吗？")) return;
+  if (!confirm(t("confirm_delete_mock"))) return;
   state.mocks = state.mocks.filter((m) => m.id !== id);
   saveState();
   renderHero();
@@ -1164,21 +1268,19 @@ elements.mockHistoryList.addEventListener("click", (e) => {
 elements.errorCatFilterContainer.addEventListener("click", (e) => {
   const pill = e.target.closest("[data-cat]");
   if (!pill) return;
-  state.activeErrorCat = pill.dataset.cat;
+  ui.activeErrorCat = pill.dataset.cat;
   renderMockAndMistakes();
 });
 
 // 打开添加错题弹窗
 elements.openAddMistakeModalBtn.addEventListener("click", () => {
-  const isEn = state.lang === "en";
   // 填充 Domain 考点选项
   elements.mistakeDomain.innerHTML = "";
   domains.forEach((dom) => {
-    dom.topics.forEach((t) => {
+    dom.topics.forEach((topic) => {
       const opt = document.createElement("option");
-      opt.value = `${dom.code} - ${t.code}`;
-      const tTitle = isEn ? (t.title_en || t.title) : t.title;
-      opt.textContent = `${t.code} ${tTitle} (${dom.code})`;
+      opt.value = `${dom.code} - ${topic.code}`;
+      opt.textContent = `${topic.code} ${pick(topic, "title")} (${dom.code})`;
       elements.mistakeDomain.appendChild(opt);
     });
   });
@@ -1188,29 +1290,23 @@ elements.openAddMistakeModalBtn.addEventListener("click", () => {
   errorCategories.forEach((cat) => {
     const opt = document.createElement("option");
     opt.value = cat.code;
-    const catName = isEn ? (cat.name_en || cat.name) : cat.name;
-    const catDesc = isEn ? (cat.desc_en || cat.desc) : cat.desc;
-    opt.textContent = `${catName} - ${catDesc}`;
+    opt.textContent = `${errorCategoryName(cat)} - ${pick(cat, "desc")}`;
     elements.mistakeErrorCategory.appendChild(opt);
   });
 
   elements.mistakeModalForm.reset();
-  elements.mistakeModalOverlay.hidden = false;
+  openModal(elements.mistakeModalOverlay);
 });
 
-elements.closeMistakeModalBtn.addEventListener("click", () => {
-  elements.mistakeModalOverlay.hidden = true;
-});
-elements.cancelMistakeModalBtn.addEventListener("click", () => {
-  elements.mistakeModalOverlay.hidden = true;
-});
+elements.closeMistakeModalBtn.addEventListener("click", () => closeModal(elements.mistakeModalOverlay));
+elements.cancelMistakeModalBtn.addEventListener("click", () => closeModal(elements.mistakeModalOverlay));
 
 // 提交错题表单
 elements.mistakeModalForm.addEventListener("submit", (e) => {
   e.preventDefault();
   const taskCode = elements.mistakeDomain.value;
   state.mistakes.unshift({
-    id: String(Date.now()),
+    id: newId(),
     questionNo: elements.mistakeQuestionNo.value.trim(),
     domain: taskCode.split(" - ")[0],
     taskCode: taskCode,
@@ -1223,9 +1319,9 @@ elements.mistakeModalForm.addEventListener("submit", (e) => {
   });
 
   saveState();
-  elements.mistakeModalOverlay.hidden = true;
+  closeModal(elements.mistakeModalOverlay);
   playChime(true);
-  showToast("错题已存入笔记本，常复习错因方能真正攻破！", "[错题]");
+  showToast(t("toast_mistake_saved"), "[MISTAKE]");
   renderMockAndMistakes();
 });
 
@@ -1234,7 +1330,7 @@ elements.mistakesListContainer.addEventListener("click", (e) => {
   const btn = e.target.closest("[data-delete-mistake]");
   if (!btn) return;
   const id = btn.dataset.deleteMistake;
-  if (!confirm("确定删除这道错题记录吗？")) return;
+  if (!confirm(t("confirm_delete_mistake"))) return;
   state.mistakes = state.mistakes.filter((m) => m.id !== id);
   saveState();
   renderMockAndMistakes();
@@ -1244,46 +1340,54 @@ elements.mistakesListContainer.addEventListener("click", (e) => {
 elements.preExamChecklistContainer.addEventListener("change", (e) => {
   const checkbox = e.target.closest("[data-checklist-id]");
   if (!checkbox) return;
-  const id = checkbox.dataset.checklistId;
-  state.checklist[id] = checkbox.checked;
+  state.checklist[checkbox.dataset.checklistId] = checkbox.checked;
   saveState();
-
-  const checkedCount = Object.values(state.checklist).filter(Boolean).length;
-  elements.checklistScorePill.textContent = `已确认 ${checkedCount} / ${preExamChecklist.length}`;
+  renderChecklistScore();
   checkbox.closest(".checklist-row")?.classList.toggle("checked", checkbox.checked);
 });
 
 // 设置目标考期
 elements.setExamDateBtn.addEventListener("click", () => {
-  const current = state.examDate || todayString();
-  const input = prompt("请输入您的目标考试日期 (格式 YYYY-MM-DD)：", current);
-  if (input !== null) {
-    if (/^\d{4}-\d{2}-\d{2}$/.test(input.trim())) {
-      state.examDate = input.trim();
-      saveState();
-      renderHero();
-      showToast(`已更新目标考期为 ${state.examDate}`, "[考期]");
-    } else if (input.trim() === "") {
-      state.examDate = "";
-      saveState();
-      renderHero();
-    } else {
-      alert("日期格式不正确，请输入类似 2026-10-15 的格式。");
-    }
+  elements.examDateInput.value = state.examDate || todayString();
+  openModal(elements.examDateModalOverlay, elements.examDateInput);
+});
+
+elements.closeExamDateModalBtn.addEventListener("click", () => closeModal(elements.examDateModalOverlay));
+
+elements.clearExamDateBtn.addEventListener("click", () => {
+  state.examDate = "";
+  saveState();
+  renderHero();
+  closeModal(elements.examDateModalOverlay);
+  showToast(t("toast_exam_date_cleared"), "[DATE]");
+});
+
+elements.examDateModalForm.addEventListener("submit", (e) => {
+  e.preventDefault();
+  const value = elements.examDateInput.value.trim();
+  if (!DATE_RE.test(value)) {
+    alert(t("alert_bad_date"));
+    return;
   }
+  state.examDate = value;
+  saveState();
+  renderHero();
+  closeModal(elements.examDateModalOverlay);
+  showToast(t("toast_exam_date_set", { d: value }), "[DATE]");
 });
 
 // 导出进度 JSON
 elements.exportBtn.addEventListener("click", () => {
-  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state, null, 2));
+  const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
   const downloadAnchor = document.createElement("a");
-  const fileName = `ccar-f-study-progress-${todayString()}.json`;
-  downloadAnchor.setAttribute("href", dataStr);
-  downloadAnchor.setAttribute("download", fileName);
+  downloadAnchor.href = url;
+  downloadAnchor.download = `ccar-f-study-progress-${todayString()}.json`;
   document.body.appendChild(downloadAnchor);
   downloadAnchor.click();
   downloadAnchor.remove();
-  showToast("进度文件已成功导出至下载文件夹！", "[导出]");
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  showToast(t("toast_export_success"), "[EXPORT]");
 });
 
 // 导入进度 JSON
@@ -1298,22 +1402,14 @@ elements.importFileInput.addEventListener("change", (e) => {
   reader.onload = (evt) => {
     try {
       const imported = JSON.parse(evt.target.result);
-      if (typeof imported !== "object") throw new Error("Format error");
-      state = {
-        ...defaultState,
-        ...imported,
-        days: {
-          7: { ...defaultState.days[7], ...(imported.days?.[7] || {}) },
-          14: { ...defaultState.days[14], ...(imported.days?.[14] || {}) },
-        },
-        topics: { ...defaultState.topics, ...(imported.topics || {}) },
-        checklist: { ...defaultState.checklist, ...(imported.checklist || {}) },
-      };
+      if (!isPlainObject(imported)) throw new Error("Format error");
+      state = sanitizeState(imported);
       saveState();
+      updateUILanguage();
       renderAll();
-      showToast("学习进度与打卡数据已成功恢复！", "[导入]");
+      showToast(t("toast_import_success"), "[IMPORT]");
     } catch (err) {
-      alert("无法解析该备份文件，请确认它是正确的 JSON 备份。");
+      alert(t("alert_import_failed"));
     } finally {
       elements.importFileInput.value = "";
     }
@@ -1323,19 +1419,20 @@ elements.importFileInput.addEventListener("change", (e) => {
 
 // 重置全部数据
 elements.resetBtn.addEventListener("click", () => {
-  if (confirm("确定要重置全部学习打卡、30 项考点掌握度、Mock 与错题本数据吗？建议重置前先点击「导出」备份！")) {
-    state = structuredClone(defaultState);
-    saveState();
-    renderAll();
-    showToast("所有备考数据已恢复初始状态", "[重置]");
-  }
+  if (!confirm(t("confirm_reset"))) return;
+  state = { ...structuredClone(defaultState), lang: state.lang };
+  saveState();
+  renderAll();
+  showToast(t("toast_reset_success"), "[RESET]");
 });
 
 // ================= 专注番茄钟引擎 =================
+// 以结束时间戳计时：后台标签页的 setInterval 会被浏览器限流，逐秒递减会越走越慢
 let pomodoroTimer = null;
 let pomodoroTotalSecs = 25 * 60;
 let pomodoroRemainingSecs = 25 * 60;
-let pomodoroRunning = false;
+let pomodoroEndAt = 0;
+let pomodoroPhase = "ready"; // ready | running | paused | finished
 
 function updatePomodoroDisplay() {
   const m = Math.floor(pomodoroRemainingSecs / 60);
@@ -1343,78 +1440,83 @@ function updatePomodoroDisplay() {
   elements.pomodoroClockDisplay.textContent = `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
-function startPomodoro() {
-  if (pomodoroRunning) return;
-  pomodoroRunning = true;
-  elements.pomodoroStartBtn.disabled = true;
-  elements.pomodoroPauseBtn.disabled = false;
-  elements.pomodoroStateText.textContent = "正在深度专注中，远离干扰...";
+function renderPomodoroState() {
+  elements.pomodoroStateText.textContent = t(`pomo_${pomodoroPhase}`);
+  elements.pomodoroStartBtn.disabled = pomodoroPhase === "running";
+  elements.pomodoroPauseBtn.disabled = pomodoroPhase !== "running";
+  elements.pomodoroStartBtn.textContent = t(pomodoroPhase === "paused" ? "pomo_btn_resume" : "pomo_btn_start");
+}
 
-  pomodoroTimer = setInterval(() => {
-    if (pomodoroRemainingSecs > 0) {
-      pomodoroRemainingSecs--;
-      updatePomodoroDisplay();
-    } else {
-      // 倒计时结束
-      clearInterval(pomodoroTimer);
-      pomodoroRunning = false;
-      elements.pomodoroStartBtn.disabled = false;
-      elements.pomodoroPauseBtn.disabled = true;
-      elements.pomodoroStateText.textContent = "太棒了！本次专注已达成！";
-      playChime(true);
+function setPomodoroPhase(phase) {
+  pomodoroPhase = phase;
+  renderPomodoroState();
+}
 
-      const focusMinutes = Math.round(pomodoroTotalSecs / 60);
-      showToast(`恭喜完成 ${focusMinutes} 分钟专注学习！`, "[专注]");
+function finishPomodoro() {
+  clearInterval(pomodoroTimer);
+  pomodoroRemainingSecs = 0;
+  updatePomodoroDisplay();
+  setPomodoroPhase("finished");
+  playChime(true);
 
-      // 询问是否记录为打卡
-      setTimeout(() => {
-        if (confirm(`本次专注用时 ${focusMinutes} 分钟，是否直接记入今日打卡记录？`)) {
-          elements.pomodoroOverlay.hidden = true;
-          const nextIdx = getNextUnfinishedDayIndex();
-          openCheckinModal(nextIdx !== -1 ? nextIdx + 1 : 1);
-          elements.checkinDuration.value = String(focusMinutes);
-        }
-      }, 300);
+  const focusMinutes = Math.round(pomodoroTotalSecs / 60);
+  showToast(t("toast_focus_done", { n: focusMinutes }), "[FOCUS]");
+
+  // 询问是否记录为打卡
+  setTimeout(() => {
+    if (confirm(t("confirm_log_focus", { n: focusMinutes }))) {
+      closeModal(elements.pomodoroOverlay);
+      const nextIdx = getNextUnfinishedDayIndex();
+      openCheckinModal(nextIdx !== -1 ? nextIdx + 1 : 1);
+      elements.checkinDuration.value = String(focusMinutes);
     }
-  }, 1000);
+  }, 300);
+}
+
+function tickPomodoro() {
+  pomodoroRemainingSecs = Math.max(0, Math.ceil((pomodoroEndAt - Date.now()) / 1000));
+  updatePomodoroDisplay();
+  if (pomodoroRemainingSecs === 0) finishPomodoro();
+}
+
+function startPomodoro() {
+  if (pomodoroPhase === "running") return;
+  if (pomodoroRemainingSecs === 0) pomodoroRemainingSecs = pomodoroTotalSecs;
+  pomodoroEndAt = Date.now() + pomodoroRemainingSecs * 1000;
+  setPomodoroPhase("running");
+  clearInterval(pomodoroTimer);
+  pomodoroTimer = setInterval(tickPomodoro, 250);
 }
 
 function pausePomodoro() {
-  if (!pomodoroRunning) return;
+  if (pomodoroPhase !== "running") return;
   clearInterval(pomodoroTimer);
-  pomodoroRunning = false;
-  elements.pomodoroStartBtn.disabled = false;
-  elements.pomodoroPauseBtn.disabled = true;
-  elements.pomodoroStateText.textContent = "专注已暂停";
+  tickPomodoro();
+  if (pomodoroPhase === "running") setPomodoroPhase("paused");
 }
 
 function resetPomodoro() {
   clearInterval(pomodoroTimer);
-  pomodoroRunning = false;
   pomodoroRemainingSecs = pomodoroTotalSecs;
-  elements.pomodoroStartBtn.disabled = false;
-  elements.pomodoroPauseBtn.disabled = true;
-  elements.pomodoroStateText.textContent = "准备就绪，保持专注";
+  setPomodoroPhase("ready");
   updatePomodoroDisplay();
 }
 
 elements.openPomodoroBtn.addEventListener("click", () => {
-  elements.pomodoroOverlay.hidden = false;
+  openModal(elements.pomodoroOverlay, elements.pomodoroStartBtn);
 });
 elements.todayStudyFocusBtn.addEventListener("click", () => {
-  elements.pomodoroOverlay.hidden = false;
+  openModal(elements.pomodoroOverlay, elements.pomodoroPauseBtn);
   resetPomodoro();
   startPomodoro();
+  elements.pomodoroPauseBtn.focus();
 });
-elements.closePomodoroModalBtn.addEventListener("click", () => {
-  elements.pomodoroOverlay.hidden = true;
-});
+elements.closePomodoroModalBtn.addEventListener("click", () => closeModal(elements.pomodoroOverlay));
 
 elements.pomodoroPresetBtns.forEach((btn) => {
   btn.addEventListener("click", () => {
     elements.pomodoroPresetBtns.forEach((b) => b.classList.toggle("active", b === btn));
-    const mins = Number(btn.dataset.mins);
-    pomodoroTotalSecs = mins * 60;
+    pomodoroTotalSecs = Number(btn.dataset.mins) * 60;
     resetPomodoro();
   });
 });
@@ -1423,27 +1525,15 @@ elements.pomodoroStartBtn.addEventListener("click", startPomodoro);
 elements.pomodoroPauseBtn.addEventListener("click", pausePomodoro);
 elements.pomodoroResetBtn.addEventListener("click", resetPomodoro);
 
-// ================= 主题锁定与语言绑定 =================
-function applyTheme() {
-  state.theme = "sakura";
-  document.body.className = "theme-sakura";
-}
-
 // 绑定语言切换按钮
-if (elements.langBtnZh) {
-  elements.langBtnZh.addEventListener("click", () => setLanguage("zh"));
-}
-if (elements.langBtnEn) {
-  elements.langBtnEn.addEventListener("click", () => setLanguage("en"));
-}
+elements.langBtnZh?.addEventListener("click", () => setLanguage("zh"));
+elements.langBtnEn?.addEventListener("click", () => setLanguage("en"));
 
 // ================= 初始化启动 =================
 function init() {
-  applyTheme();
   updateUILanguage();
   elements.mockDate.value = todayString();
   renderAll();
 }
 
 init();
-

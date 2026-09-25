@@ -17,16 +17,15 @@
     <link rel="stylesheet" href="./styles.css" />
     <link rel="stylesheet" href="./panels.css" />
     <link rel="stylesheet" href="./responsive.css" />
-    <!-- 引入 Feather / Lucide 风格的 SVG 纯前端渲染 -->
     <script src="./data.js" defer></script>
     <script src="./app.js" defer></script>
   </head>
-  <body>
+  <body class="theme-sakura">
     <!-- 顶部主导航栏 -->
     <header class="app-header">
       <div class="header-inner">
         <div class="brand-block">
-          <div class="brand-badge" title="CCA 官方认证">CCA</div>
+          <div class="brand-badge" title="CCAR-F">CCA</div>
           <div class="brand-text">
             <div class="brand-meta">
               <span class="exam-code-tag">CCAR-F</span>
@@ -39,7 +38,7 @@
 
         <div class="header-tools">
           <!-- 计划时长切换 -->
-          <div class="plan-switcher" role="group" aria-label="选择备考计划">
+          <div class="plan-switcher" role="group" aria-label="选择备考计划" data-i18n-aria="aria_plan_switch">
             <button type="button" class="plan-btn" data-plan="7" data-i18n="plan_7">7 天冲刺</button>
             <button type="button" class="plan-btn active" data-plan="14" data-i18n="plan_14">14 天稳妥</button>
           </div>
@@ -53,20 +52,20 @@
 
           <!-- 快捷操作按钮 -->
           <div class="action-buttons">
-            <button class="tool-btn pomodoro-trigger" id="openPomodoroBtn" title="打开专注番茄钟">
+            <button class="tool-btn pomodoro-trigger" id="openPomodoroBtn" title="打开专注番茄钟" data-i18n-title="title_pomodoro">
               
               <span class="btn-text" data-i18n="btn_pomodoro">专注计时</span>
             </button>
-            <button class="tool-btn" id="exportBtn" title="导出备份当前学习进度与打卡记录">
+            <button class="tool-btn" id="exportBtn" title="导出备份当前学习进度与打卡记录" data-i18n-title="title_export">
               
               <span class="btn-text" data-i18n="btn_export">导出</span>
             </button>
-            <button class="tool-btn" id="importBtn" title="从 JSON 文件恢复进度">
+            <button class="tool-btn" id="importBtn" title="从 JSON 文件恢复进度" data-i18n-title="title_import">
               
               <span class="btn-text" data-i18n="btn_import">导入</span>
             </button>
             <input type="file" id="importFileInput" accept="application/json" class="sr-only" />
-            <button class="tool-btn danger" id="resetBtn" title="重置全部学习与打卡数据">
+            <button class="tool-btn danger" id="resetBtn" title="重置全部学习与打卡数据" data-i18n-title="title_reset">
               <span class="btn-text" data-i18n="btn_reset">重置</span>
             </button>
           </div>
@@ -100,7 +99,7 @@
               <span class="badge-status" id="todayStatusBadge">待打卡</span>
             </div>
             <div class="today-time-estimate">
-               建议学习 <b id="todayEstimateTime">120</b> 分钟
+              <span data-i18n="today_suggest">建议学习</span> <b id="todayEstimateTime">120</b> <span data-i18n="minutes_unit">分钟</span>
             </div>
           </div>
           <h2 class="today-title" id="todayTitle">加载中...</h2>
@@ -133,7 +132,7 @@
                 <span class="stat-label" data-i18n="stat_streak">连续打卡</span>
               </div>
               <div class="stat-number" id="streakDays">0 <small>天</small></div>
-              <div class="stat-sub">总打卡 <span id="totalCheckins">0</span> 次</div>
+              <div class="stat-sub"><span data-i18n="stat_total_checkins">总打卡</span> <span id="totalCheckins">0</span> <span data-i18n="times_unit">次</span></div>
             </div>
 
             <div class="stat-box">
@@ -182,7 +181,7 @@
       </section>
 
       <!-- 导航标签页切换器 -->
-      <nav class="tabs-nav" aria-label="主功能标签导航">
+      <nav class="tabs-nav" aria-label="主功能标签导航" data-i18n-aria="aria_tabs">
         <button type="button" class="tab-btn active" data-tab="plan">
           
           <span class="tab-title" data-i18n="tab_plan">每日学习与打卡</span>
@@ -228,10 +227,10 @@
             <div class="sidebar-card checkin-history-card">
               <div class="sidebar-card-header">
                 <h4 data-i18n="calendar_title">打卡日历 & 学习印记</h4>
-                <span class="streak-badge">连胜 <b id="sideStreakCount">0</b> 天</span>
+                <span class="streak-badge"><span data-i18n="streak_label">连胜</span> <b id="sideStreakCount">0</b> <span data-i18n="days_unit">天</span></span>
               </div>
               <div class="calendar-grid-wrapper">
-                <div class="calendar-grid-header">
+                <div class="calendar-grid-header" id="calendarWeekdayHeader">
                   <span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span>
                 </div>
                 <div class="calendar-cells" id="checkinCalendarCells">
@@ -239,9 +238,9 @@
                 </div>
               </div>
               <div class="calendar-legend">
-                <span class="legend-dot active"></span> 今日已打卡
-                <span class="legend-dot past-active"></span> 历史打卡
-                <span class="legend-dot empty"></span> 未打卡
+                <span class="legend-dot active"></span> <span data-i18n="legend_today">今日已打卡</span>
+                <span class="legend-dot past-active"></span> <span data-i18n="legend_past">历史打卡</span>
+                <span class="legend-dot empty"></span> <span data-i18n="legend_empty">未打卡</span>
               </div>
             </div>
 
@@ -253,8 +252,8 @@
               </div>
               <div class="checkin-notes-list" id="checkinNotesList">
                 <div class="empty-state">
-                  <span>[暂无心得]</span>
-                  <p>打卡时记录今天的思考、易混点或总结，将保存在此处。</p>
+                  <span data-i18n="notes_empty_title">[暂无心得]</span>
+                  <p data-i18n="notes_empty_desc">打卡时记录今天的思考、易混点或总结，将保存在此处。</p>
                 </div>
               </div>
             </div>
@@ -285,10 +284,10 @@
 
         <div class="stage-guide-bar">
           <div class="guide-title" data-i18n="stage_guide_title">四阶掌握度标准：</div>
-          <div class="stage-step"><span class="stage-badge s0">0. 未开始</span> <span data-i18n="stage_step_0">尚未阅读该 Task Statement 核心规范</span></div>
-          <div class="stage-step"><span class="stage-badge s1">1. 理解概念</span> <span data-i18n="stage_step_1">能解释核心原理、与相近概念的区别</span></div>
-          <div class="stage-step"><span class="stage-badge s2">2. 完成练习</span> <span data-i18n="stage_step_2">能写出对应的代码/配置/流程图反模式</span></div>
-          <div class="stage-step"><span class="stage-badge s3">3. 新题验证</span> <span data-i18n="stage_step_3">在陌生场景题中能迅速排除高频干扰项并做对</span></div>
+          <div class="stage-step"><span class="stage-badge s0" data-i18n="stage_name_0">0. 未开始</span> <span data-i18n="stage_step_0">尚未阅读该 Task Statement 核心规范</span></div>
+          <div class="stage-step"><span class="stage-badge s1" data-i18n="stage_name_1">1. 理解概念</span> <span data-i18n="stage_step_1">能解释核心原理、与相近概念的区别</span></div>
+          <div class="stage-step"><span class="stage-badge s2" data-i18n="stage_name_2">2. 完成练习</span> <span data-i18n="stage_step_2">能写出对应的代码/配置/流程图反模式</span></div>
+          <div class="stage-step"><span class="stage-badge s3" data-i18n="stage_name_3">3. 新题验证</span> <span data-i18n="stage_step_3">在陌生场景题中能迅速排除高频干扰项并做对</span></div>
         </div>
 
         <div class="domains-accordion-container" id="domainsAccordionContainer">
@@ -353,7 +352,7 @@
                 </div>
                 <div class="readiness-indicator" id="readinessIndicator">
                   <span class="readiness-dot"></span>
-                  <span id="readinessStatusText">未达到就绪标准</span>
+                  <span id="readinessStatusText" data-i18n="readiness_unqualified">未达到就绪标准</span>
                 </div>
               </div>
 
@@ -365,11 +364,11 @@
                   </div>
                   <div class="form-field">
                     <label for="mockCorrect" data-i18n="mock_correct_label">答对题数 (0-60)</label>
-                    <input type="number" id="mockCorrect" min="0" max="60" placeholder="例如: 49" required />
+                    <input type="number" id="mockCorrect" min="0" max="60" placeholder="例如: 49" data-i18n-ph="ph_mock_correct" required />
                   </div>
                   <div class="form-field">
                     <label for="mockMinutes" data-i18n="mock_minutes_label">用时 (分钟)</label>
-                    <input type="number" id="mockMinutes" min="1" max="200" placeholder="例如: 105" required />
+                    <input type="number" id="mockMinutes" min="1" max="200" placeholder="例如: 105" data-i18n-ph="ph_mock_minutes" required />
                   </div>
                 </div>
 
@@ -386,13 +385,13 @@
                   </div>
                   <div class="form-field">
                     <label for="mockSource" data-i18n="mock_source_label">模拟题来源</label>
-                    <input type="text" id="mockSource" placeholder="例如: 社区 Mock 1 / AI 原创试卷" />
+                    <input type="text" id="mockSource" placeholder="例如: 社区 Mock 1 / AI 原创试卷" data-i18n-ph="ph_mock_source" />
                   </div>
                 </div>
 
                 <div class="form-field">
                   <label for="mockNotes" data-i18n="mock_notes_label">总结与错因概括</label>
-                  <textarea id="mockNotes" rows="2" placeholder="例如：多选漏选；错题集中在 D1 的 hooks 判定和 D4 的 schema nullable 上..."></textarea>
+                  <textarea id="mockNotes" rows="2" placeholder="例如：多选漏选；错题集中在 D1 的 hooks 判定和 D4 的 schema nullable 上..." data-i18n-ph="ph_mock_notes"></textarea>
                 </div>
 
                 <button type="submit" class="btn-primary-submit">
@@ -515,31 +514,31 @@
     <div class="modal-overlay" id="checkinModalOverlay" hidden>
       <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="checkinModalTitle">
         <div class="modal-header">
-          <h3 id="checkinModalTitle">记录今日打卡</h3>
-          <button type="button" class="btn-close-modal" id="closeCheckinModalBtn">&times;</button>
+          <h3 id="checkinModalTitle" data-i18n="modal_checkin_title">记录今日打卡</h3>
+          <button type="button" class="btn-close-modal" id="closeCheckinModalBtn" aria-label="关闭" data-i18n-aria="btn_close">&times;</button>
         </div>
         <form id="checkinModalForm">
           <div class="form-field">
-            <label for="checkinDate">打卡日期</label>
+            <label for="checkinDate" data-i18n="modal_checkin_date">打卡日期</label>
             <input type="date" id="checkinDate" required />
           </div>
           <div class="form-field">
-            <label for="checkinDuration">今日专注时长 (分钟)</label>
+            <label for="checkinDuration" data-i18n="modal_checkin_duration">今日专注时长 (分钟)</label>
             <input type="number" id="checkinDuration" min="1" max="600" value="120" required />
           </div>
           <div class="form-field">
-            <label for="checkinDayIndex">对应计划天数</label>
+            <label for="checkinDayIndex" data-i18n="modal_checkin_day">对应计划天数</label>
             <select id="checkinDayIndex">
               <!-- JS 动态填充当前计划天数 -->
             </select>
           </div>
           <div class="form-field">
-            <label for="checkinNote">今日学习笔记 / 交付产物心得 (可选)</label>
-            <textarea id="checkinNote" rows="3" placeholder="例如：完成了 D1.5 Hooks 拦截伪代码，理清了 PreToolUse 与 PostToolUse 的触发时机..."></textarea>
+            <label for="checkinNote" data-i18n="modal_checkin_note">今日学习笔记 / 交付产物心得 (可选)</label>
+            <textarea id="checkinNote" rows="3" data-i18n-ph="ph_checkin_note" placeholder="例如：完成了 D1.5 Hooks 拦截伪代码，理清了 PreToolUse 与 PostToolUse 的触发时机..."></textarea>
           </div>
           <div class="modal-actions">
-            <button type="button" class="btn-cancel" id="cancelCheckinModalBtn">取消</button>
-            <button type="submit" class="btn-primary-submit">点亮今日打卡</button>
+            <button type="button" class="btn-cancel" id="cancelCheckinModalBtn" data-i18n="modal_btn_cancel">取消</button>
+            <button type="submit" class="btn-primary-submit" data-i18n="modal_btn_checkin_submit">点亮今日打卡</button>
           </div>
         </form>
       </div>
@@ -549,17 +548,17 @@
     <div class="modal-overlay" id="mistakeModalOverlay" hidden>
       <div class="modal-box modal-lg" role="dialog" aria-modal="true" aria-labelledby="mistakeModalTitle">
         <div class="modal-header">
-          <h3 id="mistakeModalTitle">添加新错题记录</h3>
-          <button type="button" class="btn-close-modal" id="closeMistakeModalBtn">&times;</button>
+          <h3 id="mistakeModalTitle" data-i18n="modal_mistake_title">添加新错题记录</h3>
+          <button type="button" class="btn-close-modal" id="closeMistakeModalBtn" aria-label="关闭" data-i18n-aria="btn_close">&times;</button>
         </div>
         <form id="mistakeModalForm">
           <div class="form-row two-cols">
             <div class="form-field">
-              <label for="mistakeQuestionNo">题目标识 / 场景</label>
-              <input type="text" id="mistakeQuestionNo" placeholder="例如：Mock 1 - Q14 或 智能客服退款" required />
+              <label for="mistakeQuestionNo" data-i18n="modal_mistake_q">题目标识 / 场景</label>
+              <input type="text" id="mistakeQuestionNo" data-i18n-ph="ph_mistake_q" placeholder="例如：Mock 1 - Q14 或 智能客服退款" required />
             </div>
             <div class="form-field">
-              <label for="mistakeDomain">所属 Domain & Task</label>
+              <label for="mistakeDomain" data-i18n="modal_mistake_domain">所属 Domain & Task</label>
               <select id="mistakeDomain" required>
                 <!-- JS 动态填充 30 个 Task Statement 选项 -->
               </select>
@@ -567,42 +566,42 @@
           </div>
 
           <div class="form-field">
-            <label for="mistakeStem">核心题干与关键约束 (决定答案的关键句)</label>
-            <textarea id="mistakeStem" rows="2" placeholder="例如：用户要求退款前必须进行身份校验，如何确保不可绕过？" required></textarea>
+            <label for="mistakeStem" data-i18n="modal_mistake_stem">核心题干与关键约束 (决定答案的关键句)</label>
+            <textarea id="mistakeStem" rows="2" data-i18n-ph="ph_mistake_stem" placeholder="例如：用户要求退款前必须进行身份校验，如何确保不可绕过？" required></textarea>
           </div>
 
           <div class="form-row two-cols">
             <div class="form-field">
-              <label for="mistakeMyAnswer">我的错误选择</label>
-              <input type="text" id="mistakeMyAnswer" placeholder="例如：选了 B（在 System Prompt 里强调先验密）" required />
+              <label for="mistakeMyAnswer" data-i18n="modal_mistake_my">我的错误选择</label>
+              <input type="text" id="mistakeMyAnswer" data-i18n-ph="ph_mistake_my" placeholder="例如：选了 B（在 System Prompt 里强调先验密）" required />
             </div>
             <div class="form-field">
-              <label for="mistakeCorrectAnswer">正确选项与理由</label>
-              <input type="text" id="mistakeCorrectAnswer" placeholder="例如：应选 D（PreToolUse Hook 程序级拦截）" required />
+              <label for="mistakeCorrectAnswer" data-i18n="modal_mistake_correct">正确选项与理由</label>
+              <input type="text" id="mistakeCorrectAnswer" data-i18n-ph="ph_mistake_correct" placeholder="例如：应选 D（PreToolUse Hook 程序级拦截）" required />
             </div>
           </div>
 
           <div class="form-row two-cols">
             <div class="form-field">
-              <label for="mistakeErrorCategory">9 大标准错因分类</label>
+              <label for="mistakeErrorCategory" data-i18n="modal_mistake_cat">9 大标准错因分类</label>
               <select id="mistakeErrorCategory" required>
                 <!-- JS 动态填充 9 大错因 -->
               </select>
             </div>
             <div class="form-field">
-              <label for="mistakeReviewRef">回补知识点 / 备考材料</label>
-              <input type="text" id="mistakeReviewRef" placeholder="例如：总纲 D1.5 Hooks 章节" />
+              <label for="mistakeReviewRef" data-i18n="modal_mistake_ref">回补知识点 / 备考材料</label>
+              <input type="text" id="mistakeReviewRef" data-i18n-ph="ph_mistake_ref" placeholder="例如：总纲 D1.5 Hooks 章节" />
             </div>
           </div>
 
           <div class="form-field">
-            <label for="mistakeReflection">复盘总结 (下次如何一眼识破此陷阱)</label>
-            <textarea id="mistakeReflection" rows="2" placeholder="Prompt 是概率性指导，凡涉及钱和安全，必须找程序硬约束！"></textarea>
+            <label for="mistakeReflection" data-i18n="modal_mistake_refl">复盘总结 (下次如何一眼识破此陷阱)</label>
+            <textarea id="mistakeReflection" rows="2" data-i18n-ph="ph_mistake_refl" placeholder="Prompt 是概率性指导，凡涉及钱和安全，必须找程序硬约束！"></textarea>
           </div>
 
           <div class="modal-actions">
-            <button type="button" class="btn-cancel" id="cancelMistakeModalBtn">取消</button>
-            <button type="submit" class="btn-primary-submit">保存错题</button>
+            <button type="button" class="btn-cancel" id="cancelMistakeModalBtn" data-i18n="modal_btn_cancel">取消</button>
+            <button type="submit" class="btn-primary-submit" data-i18n="modal_btn_save_mistake">保存错题</button>
           </div>
         </form>
       </div>
@@ -612,28 +611,48 @@
     <div class="modal-overlay" id="pomodoroOverlay" hidden>
       <div class="modal-box pomodoro-modal" role="dialog" aria-modal="true" aria-labelledby="pomodoroModalTitle">
         <div class="modal-header">
-          <h3 id="pomodoroModalTitle">专注学习计时器</h3>
-          <button type="button" class="btn-close-modal" id="closePomodoroModalBtn">&times;</button>
+          <h3 id="pomodoroModalTitle" data-i18n="modal_pomo_title">专注学习计时器</h3>
+          <button type="button" class="btn-close-modal" id="closePomodoroModalBtn" aria-label="关闭" data-i18n-aria="btn_close">&times;</button>
         </div>
         <div class="pomodoro-body">
           <div class="pomodoro-presets">
-            <button type="button" class="preset-btn active" data-mins="25">25 分钟 (经典番茄)</button>
-            <button type="button" class="preset-btn" data-mins="50">50 分钟 (深度研读)</button>
-            <button type="button" class="preset-btn" data-mins="15">15 分钟 (速记复盘)</button>
+            <button type="button" class="preset-btn active" data-mins="25" data-i18n="pomo_preset_25">25 分钟 (经典番茄)</button>
+            <button type="button" class="preset-btn" data-mins="50" data-i18n="pomo_preset_50">50 分钟 (深度研读)</button>
+            <button type="button" class="preset-btn" data-mins="15" data-i18n="pomo_preset_15">15 分钟 (速记复盘)</button>
           </div>
 
           <div class="pomodoro-clock" id="pomodoroClockDisplay">25:00</div>
           <p class="pomodoro-state-text" id="pomodoroStateText">准备就绪，保持专注</p>
 
           <div class="pomodoro-controls">
-            <button type="button" class="btn-pomodoro-start" id="pomodoroStartBtn">开始专注</button>
-            <button type="button" class="btn-pomodoro-pause" id="pomodoroPauseBtn" disabled>暂停</button>
-            <button type="button" class="btn-pomodoro-reset" id="pomodoroResetBtn">重置</button>
+            <button type="button" class="btn-pomodoro-start" id="pomodoroStartBtn" data-i18n="pomo_btn_start">开始专注</button>
+            <button type="button" class="btn-pomodoro-pause" id="pomodoroPauseBtn" data-i18n="pomo_btn_pause" disabled>暂停</button>
+            <button type="button" class="btn-pomodoro-reset" id="pomodoroResetBtn" data-i18n="pomo_btn_reset">重置</button>
           </div>
-          <div class="pomodoro-tip">
+          <div class="pomodoro-tip" data-i18n="pomo_tip">
             [提示] 专注结束后，学习时间将自动计入今日学习统计并提示打卡。
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- ================= 弹窗 4：目标考期设置 ================= -->
+    <div class="modal-overlay" id="examDateModalOverlay" hidden>
+      <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="examDateModalTitle">
+        <div class="modal-header">
+          <h3 id="examDateModalTitle" data-i18n="modal_date_title">设置目标考试日期</h3>
+          <button type="button" class="btn-close-modal" id="closeExamDateModalBtn" aria-label="关闭" data-i18n-aria="btn_close">&times;</button>
+        </div>
+        <form id="examDateModalForm">
+          <div class="form-field">
+            <label for="examDateInput" data-i18n="modal_date_label">目标考试日期 (YYYY-MM-DD)</label>
+            <input type="date" id="examDateInput" required />
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="btn-cancel" id="clearExamDateBtn" data-i18n="modal_btn_clear_date">清除日期</button>
+            <button type="submit" class="btn-primary-submit" data-i18n="modal_btn_save_date">保存日期</button>
+          </div>
+        </form>
       </div>
     </div>
 
